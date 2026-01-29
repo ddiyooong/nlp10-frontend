@@ -1,0 +1,13 @@
+[build]
+  base = "/"
+  publish = "dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA 라우팅을 위한 리다이렉트 설정 (React Router 사용 시 필수)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
