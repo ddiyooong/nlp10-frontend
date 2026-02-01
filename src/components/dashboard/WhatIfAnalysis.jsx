@@ -93,7 +93,7 @@ const WhatIfAnalysis = ({ onSimulate }) => {
   })();
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col" style={{ height: '600px' }}>
       <div className="flex items-center gap-2 mb-6">
         <Sliders className="text-cyan-400" size={20} />
         <h3 className="text-white font-bold text-lg">
@@ -104,6 +104,10 @@ const WhatIfAnalysis = ({ onSimulate }) => {
       <p className="text-slate-400 text-sm mb-6">
         변수 값을 조절하여 예측 변화를 확인하세요
       </p>
+      
+      <div className="flex-1 overflow-y-auto"
+        style={{ maxHeight: 'calc(100% - 120px)' }}
+      >
 
       {/* Feature 슬라이더 섹션 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -116,22 +120,23 @@ const WhatIfAnalysis = ({ onSimulate }) => {
           return (
             <div
               key={featureKey}
-              className={`bg-slate-800/50 border rounded-xl p-4 ${
-                isChanged ? 'border-cyan-500/50' : 'border-slate-700/50'
+              className={`border rounded-xl p-4 transition-all ${
+                isChanged 
+                  ? 'bg-cyan-900/20 border-cyan-500/50' 
+                  : 'bg-slate-800/50 border-slate-700/50'
               }`}
             >
               <div className="flex justify-between items-center mb-3">
-                <label className="text-sm font-bold text-slate-300">
+                <label className={`text-sm font-bold transition-colors ${
+                  isChanged ? 'text-cyan-300' : 'text-slate-300'
+                }`}>
                   {config.label}
                 </label>
-                <div className="flex items-center gap-2">
-                  {isChanged && (
-                    <span className="text-xs text-cyan-400">변경됨</span>
-                  )}
-                  <span className="text-sm font-mono text-emerald-400">
-                    {config.format(currentValue)}
-                  </span>
-                </div>
+                <span className={`text-sm font-mono font-bold transition-colors ${
+                  isChanged ? 'text-cyan-400' : 'text-slate-400'
+                }`}>
+                  {config.format(currentValue)}
+                </span>
               </div>
               <input
                 type="range"
@@ -192,86 +197,98 @@ const WhatIfAnalysis = ({ onSimulate }) => {
         )}
       </div>
 
-      {/* 예측 결과 비교 섹션 (시뮬레이션 실행 후에만 표시) */}
-      {simulationResult && (
-        <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div>
-              <p className="text-xs text-slate-400 uppercase font-bold mb-1">현재 예측</p>
-              <p className="text-2xl font-bold text-slate-300 font-mono">
-                ${baseForecast.toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase font-bold mb-1">시뮬레이션 예측</p>
-              <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold font-mono text-cyan-400">
+      {/* 예측 결과 비교 섹션 */}
+      <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-6 mb-6">
+        {simulationResult ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div>
+                <p className="text-xs text-slate-400 uppercase font-bold mb-1">현재 예측</p>
+                <p className="text-2xl font-bold text-slate-300 font-mono">
+                  ${baseForecast.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase font-bold mb-1">시뮬레이션 예측</p>
+                <p className="text-2xl font-bold font-mono text-cyan-400 mb-1">
                   ${simulationResult.simulatedForecast.toFixed(2)}
                 </p>
                 {simulationResult.change !== 0 && (
-                  <div className={`flex items-center gap-1 text-sm font-bold ${
+                  <div className={`flex items-center gap-1 text-xs font-bold ${
                     simulationResult.change > 0 ? 'text-emerald-400' : 'text-rose-400'
                   }`}>
                     {simulationResult.change > 0 ? (
-                      <TrendingUp size={16} />
+                      <TrendingUp size={14} />
                     ) : (
-                      <TrendingDown size={16} />
+                      <TrendingDown size={14} />
                     )}
-                    {simulationResult.change > 0 ? '+' : ''}
-                    ${simulationResult.change.toFixed(2)} ({simulationResult.changePercent > 0 ? '+' : ''}
-                    {simulationResult.changePercent.toFixed(2)}%)
+                    <span>
+                      {simulationResult.change > 0 ? '+' : ''}
+                      ${simulationResult.change.toFixed(2)} ({simulationResult.changePercent > 0 ? '+' : ''}
+                      {simulationResult.changePercent.toFixed(2)}%)
+                    </span>
                   </div>
                 )}
               </div>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase font-bold mb-1">변화량</p>
-              <p className={`text-xl font-bold font-mono ${
-                simulationResult.change === 0 
-                  ? 'text-slate-500' 
-                  : simulationResult.change > 0 
-                    ? 'text-emerald-400' 
-                    : 'text-rose-400'
-              }`}>
-                {simulationResult.change === 0 
-                  ? '변화 없음' 
-                  : `${simulationResult.change > 0 ? '+' : ''}${simulationResult.change.toFixed(2)}`
-                }
-              </p>
-            </div>
-          </div>
-
-          {/* Feature별 기여도 */}
-          {simulationResult.featureImpacts.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-slate-800">
-              <p className="text-xs text-slate-400 uppercase font-bold mb-3">
-                Feature별 기여도
-              </p>
-              <div className="space-y-2">
-                {simulationResult.featureImpacts.map((impact, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <span className="text-sm text-slate-300">
-                      {FEATURE_CONFIG[impact.feature].label}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-500">
-                        {impact.valueChange > 0 ? '+' : ''}
-                        {impact.valueChange.toFixed(2)}
-                      </span>
-                      <span className={`text-sm font-mono font-bold ${
-                        impact.contribution > 0 ? 'text-emerald-400' : 'text-rose-400'
-                      }`}>
-                        {impact.contribution > 0 ? '+' : ''}
-                        ${impact.contribution.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                <p className="text-xs text-slate-400 uppercase font-bold mb-1">변화량</p>
+                <p className={`text-xl font-bold font-mono ${
+                  simulationResult.change === 0 
+                    ? 'text-slate-500' 
+                    : simulationResult.change > 0 
+                      ? 'text-emerald-400' 
+                      : 'text-rose-400'
+                }`}>
+                  {simulationResult.change === 0 
+                    ? '변화 없음' 
+                    : `${simulationResult.change > 0 ? '+' : ''}${simulationResult.change.toFixed(2)}`
+                  }
+                </p>
               </div>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Feature별 기여도 */}
+            {simulationResult.featureImpacts.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-slate-800">
+                <p className="text-xs text-slate-400 uppercase font-bold mb-3">
+                  Feature별 기여도
+                </p>
+                <div className="space-y-2">
+                  {simulationResult.featureImpacts.map((impact, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <span className="text-sm text-slate-300">
+                        {FEATURE_CONFIG[impact.feature].label}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-500">
+                          {impact.valueChange > 0 ? '+' : ''}
+                          {impact.valueChange.toFixed(2)}
+                        </span>
+                        <span className={`text-sm font-mono font-bold ${
+                          impact.contribution > 0 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}>
+                          {impact.contribution > 0 ? '+' : ''}
+                          ${impact.contribution.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Play size={48} className="text-slate-600 mb-4" />
+            <p className="text-slate-400 text-sm">
+              변수를 조절한 후 <span className="text-cyan-400 font-bold">"예측하기"</span> 버튼을 눌러
+            </p>
+            <p className="text-slate-400 text-sm">
+              시뮬레이션 결과를 확인하세요
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* 저장된 시나리오 목록 */}
       {savedScenarios.length > 0 && (
@@ -355,6 +372,7 @@ const WhatIfAnalysis = ({ onSimulate }) => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

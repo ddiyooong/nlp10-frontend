@@ -7,18 +7,15 @@ import { Target, CheckCircle2 } from 'lucide-react';
 /**
  * 가격 예측 차트 컴포넌트
  * @param {Object} props
- * @param {Array} props.data - 차트 데이터
+ * @param {Array} props.data - 차트 데이터 (시뮬레이션 또는 원본)
+ * @param {Array} props.originalData - 원본 차트 데이터 (시뮬레이션 비교용)
  * @param {string} props.accuracy - 모델 정확도 (%)
  * @param {string|null} props.selectedDate - 선택된 날짜
  * @param {Function} props.onDateSelect - 날짜 선택 핸들러
  * @param {boolean} props.isSimulation - 시뮬레이션 모드 여부
  */
-const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect, isSimulation = false }) => {
+const ForecastChart = ({ data, originalData, accuracy, selectedDate, onDateSelect, isSimulation = false }) => {
   const todayData = data.find(d => d.isToday);
-  
-  // 원본 데이터에서 시뮬레이션이 아닌 예측 데이터 추출 (비교용)
-  // 실제로는 Dashboard에서 원본 데이터를 별도로 전달받아야 하지만,
-  // 현재는 시뮬레이션 데이터만 표시하도록 구현
   
   // activeDot 클릭 핸들러 (recharts 이벤트 형식)
   const handleActiveDotClick = (event, payload) => {
@@ -50,7 +47,7 @@ const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect, isSimulatio
   };
 
   return (
-    <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+    <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col" style={{ height: '600px' }}>
       {/* 헤더 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -87,10 +84,16 @@ const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect, isSimulatio
             <div className="w-3 h-0.5 bg-emerald-500"></div>
             <span className="text-slate-300">실제 가격 (Actual)</span>
           </div>
+          {isSimulation && (
+            <div className="flex items-center gap-2 px-2 border-l border-slate-800">
+              <div className="w-3 h-0.5 border-t border-dashed border-indigo-400"></div>
+              <span className="text-indigo-300">원본 예측</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 px-2 border-l border-slate-800">
-            <div className="w-3 h-0.5 border-t border-dashed border-indigo-400"></div>
-            <span className="text-indigo-300">
-              {isSimulation ? '시뮬레이션 예측' : 'AI 예측 (Forecast)'}
+            <div className="w-3 h-0.5 border-t border-dashed border-cyan-400"></div>
+            <span className="text-cyan-300">
+              {isSimulation ? '시뮬레이션 예측' : 'AI 예측'}
             </span>
           </div>
           <div className="flex items-center gap-2 px-2 border-l border-slate-800">
@@ -101,7 +104,7 @@ const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect, isSimulatio
       </div>
 
       {/* 차트 */}
-      <div className="h-[400px] w-full">
+      <div className="flex-1 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart 
             data={data} 
@@ -147,6 +150,22 @@ const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect, isSimulatio
             )}
             <Area type="monotone" dataKey="ci_upper" stroke="none" fill="url(#ciGradient)" />
             <Area type="monotone" dataKey="ci_lower" stroke="none" fill="#020617" />
+            
+            {/* 원본 예측 라인 (시뮬레이션 모드일 때만) */}
+            {isSimulation && originalData && (
+              <Line 
+                type="monotone" 
+                data={originalData}
+                dataKey="forecast" 
+                stroke="#818cf8"
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+                name="원본 예측"
+              />
+            )}
+            
+            {/* 시뮬레이션/예측 라인 */}
             <Line 
               type="monotone" 
               dataKey="forecast" 

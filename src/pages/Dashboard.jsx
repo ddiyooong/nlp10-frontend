@@ -137,14 +137,22 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* 1. 시계열 예측 차트 */}
-        <ForecastChart 
-          data={chartData} 
-          accuracy={accuracy}
-          selectedDate={selectedDate}
-          onDateSelect={handleDateSelect}
-          isSimulation={!!simulationData}
-        />
+        {/* 1. 시계열 예측 차트 + What-if 분석 */}
+        <section className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
+          <div className="xl:col-span-2">
+            <ForecastChart 
+              data={chartData}
+              originalData={simulationData ? data : null}
+              accuracy={accuracy}
+              selectedDate={selectedDate}
+              onDateSelect={handleDateSelect}
+              isSimulation={!!simulationData}
+            />
+          </div>
+          <div className="xl:col-span-1">
+            <WhatIfAnalysis onSimulate={handleSimulation} />
+          </div>
+        </section>
 
         {/* 2. 분석 그룹: 핵심 변수 + AI 리포트 + 유사 패턴 */}
         <section className="space-y-6">
@@ -155,10 +163,7 @@ const Dashboard = () => {
           <SimilarPatterns />
         </section>
 
-        {/* 3. What-if 분석 대시보드 */}
-        <WhatIfAnalysis onSimulate={handleSimulation} />
-
-        {/* 4. 상세 변수 + 뉴스 피드 */}
+        {/* 3. 상세 변수 + 뉴스 피드 */}
         <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <MarketMetrics />
           <NewsFeed />
