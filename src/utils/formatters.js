@@ -74,3 +74,45 @@ export const calculateAccuracy = (data) => {
   return (100 - avgError).toFixed(1);
 };
 
+/**
+ * 시뮬레이션 데이터 생성
+ * 원본 데이터를 기반으로 시뮬레이션 결과를 반영한 미래 예측 데이터 생성
+ * @param {Array} originalData - 원본 차트 데이터
+ * @param {Object} simulationResult - 시뮬레이션 결과 (change, changePercent 포함)
+ * @returns {Array} 시뮬레이션 데이터 배열
+ */
+export const generateSimulationData = (originalData, simulationResult) => {
+  if (!simulationResult || !simulationResult.result) {
+    return originalData;
+  }
+
+  const today = new Date();
+  const changePercent = simulationResult.result.changePercent / 100;
+  
+  return originalData.map((point) => {
+    const newPoint = { ...point };
+    
+    // 미래 데이터만 시뮬레이션 결과 반영
+    if (point.isFuture && point.forecast) {
+      // 원본 예측에 변화율을 적용
+      const simulatedPrice = point.forecast * (1 + changePercent);
+      newPoint.forecast = Number(simulatedPrice.toFixed(2));
+      
+      // 신뢰구간도 동일한 비율로 조정
+      if (point.ci_upper) {
+        newPoint.ci_upper = Number((point.ci_upper * (1 + changePercent)).toFixed(2));
+      }
+      if (point.ci_lower) {
+        newPoint.ci_lower = Number((point.ci_lower * (1 + changePercent)).toFixed(2));
+      }
+      
+      // 시뮬레이션 데이터임을 표시
+      newPoint.isSimulation = true;
+    }
+    
+    return newPoint;
+  });
+};
+
+
+

@@ -8,12 +8,13 @@ import {
   KeyFactors, 
   ReasoningReport, 
   MarketMetrics, 
-  NewsFeed, 
-  ChatBot 
+  NewsFeed,
+  SimilarPatterns,
+  WhatIfAnalysis
 } from '../components';
 
 // Utils
-import { generateChartData, calculateAccuracy } from '../utils/formatters';
+import { generateChartData, calculateAccuracy, generateSimulationData } from '../utils/formatters';
 
 /**
  * AgriFlow AI 메인 대시보드 컴포넌트
@@ -22,18 +23,38 @@ import { generateChartData, calculateAccuracy } from '../utils/formatters';
 const Dashboard = () => {
   // 차트 데이터 (Mock)
   const [data] = useState(() => generateChartData());
+  
+  // 시뮬레이션 데이터 상태
+  const [simulationData, setSimulationData] = useState(null);
 
   // 선택된 날짜 상태 (null = 오늘 기준, 값이 있으면 해당 날짜 기준)
   const [selectedDate, setSelectedDate] = useState(null);
 
   // 모델 정확도 계산
   const accuracy = useMemo(() => calculateAccuracy(data), [data]);
+  
+  // 표시할 차트 데이터 (시뮬레이션이 있으면 시뮬레이션 데이터, 없으면 원본)
+  const chartData = useMemo(() => {
+    if (simulationData) {
+      return generateSimulationData(data, simulationData);
+    }
+    return data;
+  }, [data, simulationData]);
 
   // 선택된 날짜의 데이터 가져오기
   const selectedDateData = useMemo(() => {
     if (!selectedDate) return null;
-    return data.find(d => d.date === selectedDate);
-  }, [selectedDate, data]);
+    return chartData.find(d => d.date === selectedDate);
+  }, [selectedDate, chartData]);
+  
+  // 시뮬레이션 핸들러
+  const handleSimulation = (simData) => {
+    setSimulationData(simData);
+    // 시뮬레이션이 초기화되면 선택된 날짜도 초기화
+    if (!simData) {
+      setSelectedDate(null);
+    }
+  };
 
   // 오늘 가격 가져오기 (비교용)
   const todayPrice = useMemo(() => {
@@ -118,27 +139,31 @@ const Dashboard = () => {
 
         {/* 1. 시계열 예측 차트 */}
         <ForecastChart 
-          data={data} 
+          data={chartData} 
           accuracy={accuracy}
           selectedDate={selectedDate}
           onDateSelect={handleDateSelect}
+          isSimulation={!!simulationData}
         />
 
-        {/* 2. XAI 대시보드: 핵심 변수 + AI 리포트 */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <KeyFactors selectedDate={selectedDate} />
-          <ReasoningReport selectedDate={selectedDate} />
+        {/* 2. 분석 그룹: 핵심 변수 + AI 리포트 + 유사 패턴 */}
+        <section className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <KeyFactors selectedDate={selectedDate} />
+            <ReasoningReport selectedDate={selectedDate} />
+          </div>
+          <SimilarPatterns />
         </section>
 
-        {/* 3. 상세 변수 + 뉴스 피드 */}
+        {/* 3. What-if 분석 대시보드 */}
+        <WhatIfAnalysis onSimulate={handleSimulation} />
+
+        {/* 4. 상세 변수 + 뉴스 피드 */}
         <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <MarketMetrics />
           <NewsFeed />
         </section>
       </main>
-
-      {/* AI 챗봇 */}
-      <ChatBot />
     </div>
   );
 };

@@ -227,3 +227,188 @@ export const getReasoningByDate = (dateString) => {
   };
 };
 
+/**
+ * 유사 패턴 과거 사례 분석 데이터 생성
+ * 현재 패턴과 유사한 과거 사례를 반환
+ * @returns {Object} { commodityId, currentPatternRange, similarPatterns }
+ */
+export const getSimilarPatterns = () => {
+  // 현재 날짜 기준으로 과거 30일 범위 설정
+  const today = new Date();
+  const currentStart = new Date(today);
+  currentStart.setDate(currentStart.getDate() - 30);
+  
+  const formatDate = (date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  // Mock 유사 패턴 데이터
+  const similarPatterns = [
+    {
+      rank: 1,
+      similarity: 87.2,
+      periodStart: "2024-07-01",
+      periodEnd: "2024-07-30",
+      priceStart: 420.50,
+      priceEnd: 445.20,
+      priceChange: 5.87,
+      outcomeAfter60Days: 8.2,
+      keyFactors: ["폭염 경보", "에탄올 수요 급증", "순매수 확대"]
+    },
+    {
+      rank: 2,
+      similarity: 82.5,
+      periodStart: "2023-03-15",
+      periodEnd: "2023-04-14",
+      priceStart: 435.80,
+      priceEnd: 452.30,
+      priceChange: 3.78,
+      outcomeAfter60Days: 6.5,
+      keyFactors: ["금리 동결", "달러 약세", "작물 조건 악화"]
+    },
+    {
+      rank: 3,
+      similarity: 78.9,
+      periodStart: "2022-09-10",
+      periodEnd: "2022-10-10",
+      priceStart: 410.20,
+      priceEnd: 428.60,
+      priceChange: 4.49,
+      outcomeAfter60Days: 5.3,
+      keyFactors: ["공급망 불안", "수출 제한", "기관 매수"]
+    }
+  ];
+
+  return {
+    commodityId: "corn",
+    currentPatternRange: `${formatDate(currentStart)} ~ ${formatDate(today)}`,
+    similarPatterns
+  };
+};
+
+/**
+ * What-if 분석용 기본 Feature 값
+ * 현재 시장 지표를 기반으로 설정
+ */
+export const DEFAULT_FEATURE_VALUES = {
+  WTI: 75.50,
+  DXY: 104.2,
+  NET_LONG: 15400,
+  ETHANOL_PROD: 1.05
+};
+
+/**
+ * Feature별 가중치 및 영향 계수
+ * 각 Feature가 가격에 미치는 영향도를 정의
+ */
+const FEATURE_WEIGHTS = {
+  WTI: {
+    weight: 0.15, // 전체 영향의 15%
+    sensitivity: 0.8, // WTI $1 변화당 가격 변화 ($0.8)
+    direction: 1 // 양의 상관관계
+  },
+  DXY: {
+    weight: 0.12,
+    sensitivity: -0.6, // DXY 1 포인트 변화당 가격 변화 ($-0.6, 역상관)
+    direction: -1
+  },
+  NET_LONG: {
+    weight: 0.20,
+    sensitivity: 0.002, // 1000 계약 변화당 가격 변화 ($2)
+    direction: 1
+  },
+  ETHANOL_PROD: {
+    weight: 0.18,
+    sensitivity: 12.0, // 0.1M barrels/day 변화당 가격 변화 ($12)
+    direction: 1
+  }
+};
+
+/**
+ * What-if 분석: Feature 값 변경에 따른 예측 가격 계산
+ * @param {Object} featureOverrides - 변경할 Feature 값들
+ * @param {number} baseForecast - 기본 예측 가격
+ * @returns {Object} { simulatedForecast, change, changePercent, featureImpacts }
+ */
+export const calculateWhatIfForecast = (featureOverrides = {}, baseForecast = 452.30) => {
+  const featureImpacts = [];
+  let totalChange = 0;
+
+  // 각 Feature별 영향 계산
+  Object.keys(FEATURE_WEIGHTS).forEach((featureKey) => {
+    const currentValue = DEFAULT_FEATURE_VALUES[featureKey];
+    const newValue = featureOverrides[featureKey] !== undefined 
+      ? featureOverrides[featureKey] 
+      : currentValue;
+    
+    if (newValue !== currentValue) {
+      const config = FEATURE_WEIGHTS[featureKey];
+      const valueChange = newValue - currentValue;
+      const impact = valueChange * config.sensitivity * config.direction;
+      
+      featureImpacts.push({
+        feature: featureKey,
+        contribution: impact,
+        valueChange: valueChange,
+        currentValue: currentValue,
+        newValue: newValue
+      });
+      
+      totalChange += impact;
+    }
+  });
+
+  const simulatedForecast = baseForecast + totalChange;
+  const change = simulatedForecast - baseForecast;
+  const changePercent = (change / baseForecast) * 100;
+
+  // 영향도 순으로 정렬
+  featureImpacts.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+
+  return {
+    originalForecast: baseForecast,
+    simulatedForecast: Math.max(0, simulatedForecast), // 음수 방지
+    change: change,
+    changePercent: changePercent,
+    featureImpacts: featureImpacts
+  };
+};
+
+/**
+ * Feature별 범위 및 단위 정보
+ */
+export const FEATURE_CONFIG = {
+  WTI: {
+    label: "WTI Crude Oil",
+    unit: "$",
+    min: 60,
+    max: 90,
+    step: 0.5,
+    format: (val) => `$${val.toFixed(2)}`
+  },
+  DXY: {
+    label: "Dollar Index",
+    unit: "",
+    min: 100,
+    max: 110,
+    step: 0.1,
+    format: (val) => val.toFixed(1)
+  },
+  NET_LONG: {
+    label: "Net Long (순매수)",
+    unit: "",
+    min: 5000,
+    max: 25000,
+    step: 500,
+    format: (val) => `${(val / 1000).toFixed(1)}K`
+  },
+  ETHANOL_PROD: {
+    label: "Ethanol Production",
+    unit: "M",
+    min: 0.8,
+    max: 1.2,
+    step: 0.01,
+    format: (val) => `${val.toFixed(2)}M`
+  }
+};
+

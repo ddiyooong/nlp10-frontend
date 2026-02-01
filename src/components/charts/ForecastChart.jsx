@@ -11,9 +11,14 @@ import { Target, CheckCircle2 } from 'lucide-react';
  * @param {string} props.accuracy - 모델 정확도 (%)
  * @param {string|null} props.selectedDate - 선택된 날짜
  * @param {Function} props.onDateSelect - 날짜 선택 핸들러
+ * @param {boolean} props.isSimulation - 시뮬레이션 모드 여부
  */
-const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect }) => {
+const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect, isSimulation = false }) => {
   const todayData = data.find(d => d.isToday);
+  
+  // 원본 데이터에서 시뮬레이션이 아닌 예측 데이터 추출 (비교용)
+  // 실제로는 Dashboard에서 원본 데이터를 별도로 전달받아야 하지만,
+  // 현재는 시뮬레이션 데이터만 표시하도록 구현
   
   // activeDot 클릭 핸들러 (recharts 이벤트 형식)
   const handleActiveDotClick = (event, payload) => {
@@ -54,6 +59,13 @@ const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect }) => {
               <Target className="text-emerald-400" />
               옥수수 선물 가격 예측 (Corn Futures)
             </h2>
+            {isSimulation && (
+              <div className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 px-3 py-1 rounded-full">
+                <span className="text-xs font-bold text-cyan-400">
+                  시뮬레이션 모드
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
               <CheckCircle2 size={14} className="text-emerald-400" />
               <span className="text-xs font-bold text-emerald-400">
@@ -62,19 +74,24 @@ const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect }) => {
             </div>
           </div>
           <p className="text-slate-400 text-sm">
-            과거 30일 모델 검증 및 향후 60일 추세 전망
+            {isSimulation 
+              ? 'What-if 시뮬레이션 결과: 변수 조절에 따른 미래 60일 예측'
+              : '과거 30일 모델 검증 및 향후 60일 추세 전망'
+            }
           </p>
         </div>
 
         {/* 범례 */}
-        <div className="flex gap-4 text-xs font-bold bg-slate-950 p-2 rounded-lg border border-slate-800">
+        <div className="flex gap-4 text-xs font-bold bg-slate-950 p-2 rounded-lg border border-slate-800 flex-wrap">
           <div className="flex items-center gap-2 px-2">
             <div className="w-3 h-0.5 bg-emerald-500"></div>
             <span className="text-slate-300">실제 가격 (Actual)</span>
           </div>
           <div className="flex items-center gap-2 px-2 border-l border-slate-800">
             <div className="w-3 h-0.5 border-t border-dashed border-indigo-400"></div>
-            <span className="text-indigo-300">AI 예측 (Forecast)</span>
+            <span className="text-indigo-300">
+              {isSimulation ? '시뮬레이션 예측' : 'AI 예측 (Forecast)'}
+            </span>
           </div>
           <div className="flex items-center gap-2 px-2 border-l border-slate-800">
             <div className="w-3 h-3 bg-indigo-500/20 border border-indigo-500/20 rounded-sm"></div>
@@ -133,19 +150,19 @@ const ForecastChart = ({ data, accuracy, selectedDate, onDateSelect }) => {
             <Line 
               type="monotone" 
               dataKey="forecast" 
-              stroke="#818cf8" 
-              strokeWidth={2} 
-              strokeDasharray="5 5" 
+              stroke={isSimulation ? "#06b6d4" : "#818cf8"}
+              strokeWidth={isSimulation ? 3 : 2}
+              strokeDasharray={isSimulation ? "8 4" : "5 5"}
               dot={<SelectedDot />}
               activeDot={{
                 r: 8,
-                fill: '#818cf8',
+                fill: isSimulation ? '#06b6d4' : '#818cf8',
                 stroke: '#fff',
                 strokeWidth: 2,
                 cursor: 'pointer',
                 onClick: handleActiveDotClick
               }}
-              name="forecast"
+              name={isSimulation ? "시뮬레이션 예측" : "forecast"}
             />
             <Line type="monotone" dataKey="ai_past" stroke="#a78bfa" strokeWidth={2} strokeDasharray="4 4" dot={false} name="ai_past" />
             <Line type="monotone" dataKey="actual" stroke="#10B981" strokeWidth={3} dot={false} name="actual" />

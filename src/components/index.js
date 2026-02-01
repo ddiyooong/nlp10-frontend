@@ -12,9 +12,11 @@ export {
   ReasoningReport, 
   MetricCard, 
   MarketMetrics, 
-  NewsFeed 
+  NewsFeed,
+  SimilarPatterns,
+  WhatIfAnalysis
 } from './dashboard';
 
-// Chat
-export { default as ChatBot } from './chat/ChatBot';
+
+
 

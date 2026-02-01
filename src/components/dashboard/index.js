@@ -4,4 +4,8 @@ export { default as ReasoningReport } from './ReasoningReport';
 export { default as MetricCard } from './MetricCard';
 export { default as MarketMetrics } from './MarketMetrics';
 export { default as NewsFeed } from './NewsFeed';
+export { default as SimilarPatterns } from './SimilarPatterns';
+export { default as WhatIfAnalysis } from './WhatIfAnalysis';
+
+
 
