@@ -1,14 +1,20 @@
 import { BrainCircuit, FileText, Zap } from 'lucide-react';
-import { getReasoningByDate } from '../../data/mockData';
+import { getReasoningByDate, IMPACT_ANALYSIS_NEWS } from '../../data/mockData';
 
 /**
  * AI 예측 근거 리포트 컴포넌트
  * Executive Summary + 고영향 뉴스 분석
  * @param {Object} props
  * @param {string|null} props.selectedDate - 선택된 날짜 (null이면 오늘 기준)
+ * @param {Object|null} props.reasoning - API에서 가져온 reasoning 데이터 (없으면 Mock 사용)
  */
-const ReasoningReport = ({ selectedDate }) => {
-  const { summary, impactNews } = getReasoningByDate(selectedDate);
+const ReasoningReport = ({ selectedDate, reasoning: propReasoning }) => {
+  // API 데이터가 있으면 사용, 없으면 Mock 데이터 사용
+  const mockData = getReasoningByDate(selectedDate);
+  const summary = propReasoning?.summary || mockData.summary;
+  const impactNews = (propReasoning?.impactNews && propReasoning.impactNews.length > 0) 
+    ? propReasoning.impactNews 
+    : mockData.impactNews;
   
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl lg:col-span-2 flex flex-col">

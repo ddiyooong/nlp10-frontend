@@ -6,9 +6,11 @@ import { getFactorsByDate } from '../../data/mockData';
  * TFT 모델의 Feature Importance 시각화
  * @param {Object} props
  * @param {string|null} props.selectedDate - 선택된 날짜 (null이면 오늘 기준)
+ * @param {Array|null} props.factors - API에서 가져온 factors 데이터 (없으면 Mock 사용)
  */
-const KeyFactors = ({ selectedDate }) => {
-  const factors = getFactorsByDate(selectedDate);
+const KeyFactors = ({ selectedDate, factors: propFactors }) => {
+  // API 데이터가 있으면 사용, 없으면 Mock 데이터 사용
+  const factors = propFactors || getFactorsByDate(selectedDate);
   
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl lg:col-span-1">
