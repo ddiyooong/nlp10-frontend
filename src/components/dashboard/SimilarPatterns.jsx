@@ -122,3 +122,4 @@ const SimilarPatterns = () => {
 
 export default SimilarPatterns;
 
+

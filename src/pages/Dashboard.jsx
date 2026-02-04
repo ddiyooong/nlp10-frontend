@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, TrendingUp, TrendingDown, X } from 'lucide-react';
 
 // Components
@@ -15,21 +15,67 @@ import {
 
 // Utils
 import { generateChartData, calculateAccuracy, generateSimulationData } from '../utils/formatters';
+import { fetchChartData, fetchDateDetail, toAPIDateFormat } from '../utils/dataAdapter';
 
 /**
  * AgriFlow AI 메인 대시보드 컴포넌트
  * 농산물 선물 가격 예측 대시보드
  */
 const Dashboard = () => {
-  // 차트 데이터 (Mock)
-  const [data] = useState(() => generateChartData());
+  // 차트 데이터
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // 시뮬레이션 데이터 상태
   const [simulationData, setSimulationData] = useState(null);
 
   // 선택된 날짜 상태 (null = 오늘 기준, 값이 있으면 해당 날짜 기준)
   const [selectedDate, setSelectedDate] = useState(null);
+  
+  // 선택된 날짜의 상세 데이터 (API에서 가져온 factors, reasoning)
+  const [dateDetail, setDateDetail] = useState(null);
+  
+  // 품목명 (현재는 Corn 고정, 추후 상태로 관리 가능)
+  const [commodity] = useState('Corn');
 
+  // 초기 데이터 로드
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // 날짜 범위 설정: 과거 30일 ~ 미래 60일
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - 30);
+        const endDate = new Date(today);
+        endDate.setDate(today.getDate() + 60);
+        
+        // API에서 차트 데이터 가져오기
+        const chartData = await fetchChartData(commodity, startDate, endDate);
+        
+        if (chartData.length === 0) {
+          // API 실패 시 Mock 데이터로 fallback
+          console.warn('API data not available, using mock data');
+          setData(generateChartData());
+        } else {
+          setData(chartData);
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+        setError(err.message);
+        // 에러 발생 시 Mock 데이터로 fallback
+        setData(generateChartData());
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadDashboardData();
+  }, [commodity]);
+  
   // 모델 정확도 계산
   const accuracy = useMemo(() => calculateAccuracy(data), [data]);
   
@@ -63,14 +109,39 @@ const Dashboard = () => {
   }, [data]);
 
   // 날짜 선택 핸들러
-  const handleDateSelect = (date) => {
+  const handleDateSelect = async (date) => {
     setSelectedDate(date);
+    
+    // 선택된 날짜의 상세 데이터 가져오기
+    const selectedPoint = data.find(d => d.date === date);
+    if (selectedPoint && selectedPoint.apiDate) {
+      try {
+        const detail = await fetchDateDetail(commodity, selectedPoint.apiDate);
+        setDateDetail(detail);
+      } catch (err) {
+        console.error('Failed to fetch date detail:', err);
+        setDateDetail(null);
+      }
+    }
   };
 
   // 날짜 선택 해제 (오늘 기준으로 리셋)
   const handleResetDate = () => {
     setSelectedDate(null);
+    setDateDetail(null);
   };
+  
+  // 로딩 상태 표시
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#020617] text-slate-200 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
+          <p className="text-slate-400">데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 pb-20">
@@ -157,8 +228,14 @@ const Dashboard = () => {
         {/* 2. 분석 그룹: 핵심 변수 + AI 리포트 + 유사 패턴 */}
         <section className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <KeyFactors selectedDate={selectedDate} />
-            <ReasoningReport selectedDate={selectedDate} />
+            <KeyFactors 
+              selectedDate={selectedDate} 
+              factors={dateDetail?.factors}
+            />
+            <ReasoningReport 
+              selectedDate={selectedDate} 
+              reasoning={dateDetail?.reasoning}
+            />
           </div>
           <SimilarPatterns />
         </section>
