@@ -13,7 +13,6 @@ export {
   MetricCard, 
   MarketMetrics, 
   NewsFeed,
-  SimilarPatterns,
   WhatIfAnalysis
 } from './dashboard';
 

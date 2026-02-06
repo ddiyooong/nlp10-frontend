@@ -28,62 +28,53 @@ export const toDisplayDateFormat = (apiDate) => {
   return `${parseInt(month)}/${parseInt(day)}`;
 };
 
-/**
- * Mock 데이터로 과거 실제 가격 생성
- * @param {Date} date - 날짜
- * @param {number} index - 인덱스
- * @param {number} basePrice - 기준 가격
- * @returns {Object} { actual, ai_past, errorRate }
- */
-const generateMockActual = (date, index, basePrice) => {
-  const seed = date.getTime();
-  const pseudoRandom = (Math.sin(seed) * 10000) % 1;
-  const change = (pseudoRandom - 0.48) * 5;
-  const actual = Number((basePrice + change).toFixed(2));
-  
-  const error = (pseudoRandom - 0.5) * 6;
-  const ai_past = Number((actual + error).toFixed(2));
-  const errorRate = (Math.abs(actual - ai_past) / actual * 100).toFixed(2);
-  
-  return { actual, ai_past, errorRate };
-};
 
 /**
  * API 예측 데이터를 차트 데이터로 변환
- * @param {string} commodity - 품목명
- * @param {Date} startDate - 시작 날짜
- * @param {Date} endDate - 종료 날짜
+ * @param {string} commodity - 품목명 (예: "corn")
  * @returns {Promise<Array>} 차트 데이터 배열
  */
-export const fetchChartData = async (commodity = 'Corn', startDate, endDate) => {
+export const fetchChartData = async (commodity = 'corn') => {
   try {
-    const apiStartDate = toAPIDateFormat(startDate);
-    const apiEndDate = toAPIDateFormat(endDate);
+    // API에서 예측 데이터 + 실제 가격 가져오기
+    const response = await fetchPredictions(commodity);
+    const { predictions = [], historical_prices = [] } = response;
     
-    // API에서 예측 데이터 가져오기
-    const predictions = await fetchPredictions(commodity, apiStartDate, apiEndDate);
-    
-    // 날짜별로 데이터 매핑 (API 데이터가 없을 수도 있음)
+    // 예측 데이터를 날짜별로 매핑
     const predictionMap = new Map();
     predictions.forEach(pred => {
       predictionMap.set(pred.target_date, pred);
     });
     
-    // 전체 날짜 범위에 대한 차트 데이터 생성
+    // 실제 가격 데이터를 날짜별로 매핑
+    const actualPriceMap = new Map();
+    historical_prices.forEach(price => {
+      actualPriceMap.set(price.date, price.actual_price);
+    });
+    
+    // 차트 데이터 생성
     const data = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    let currentDate = new Date(startDate);
-    let basePrice = 450; // 초기 가격
+    // 전체 날짜 목록 생성 (예측 + 실제 가격 모두 포함)
+    const allDates = new Set([
+      ...predictions.map(p => p.target_date),
+      ...historical_prices.map(p => p.date)
+    ]);
     
-    while (currentDate <= endDate) {
-      const apiDate = toAPIDateFormat(currentDate);
-      const displayDate = formatDate(currentDate);
+    // 날짜 정렬
+    const sortedDates = Array.from(allDates).sort();
+    
+    sortedDates.forEach(apiDate => {
+      const [year, month, day] = apiDate.split('-');
+      const currentDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      const displayDate = toDisplayDateFormat(apiDate);
       const isFuture = currentDate > today;
       const isToday = currentDate.toDateString() === today.toDateString();
       
       const prediction = predictionMap.get(apiDate);
+      const actualPrice = actualPriceMap.get(apiDate);
       
       const point = {
         date: displayDate,
@@ -98,46 +89,29 @@ export const fetchChartData = async (commodity = 'Corn', startDate, endDate) => 
         errorRate: null,
       };
       
+      // 실제 가격 설정 (과거 데이터만)
+      if (!isFuture && actualPrice !== undefined) {
+        point.actual = actualPrice;
+      }
+      
+      // 예측 데이터 설정
       if (prediction) {
-        // API 데이터가 있는 경우
-        if (isFuture) {
+        if (isFuture || isToday) {
           point.forecast = prediction.price_pred;
           point.ci_upper = prediction.conf_upper;
           point.ci_lower = prediction.conf_lower;
-          basePrice = prediction.price_pred;
-        } else {
-          // 과거 데이터: 실제 가격은 Mock 생성
-          const mockData = generateMockActual(currentDate, data.length, basePrice);
-          point.actual = mockData.actual;
-          point.ai_past = mockData.ai_past;
-          point.errorRate = mockData.errorRate;
-          basePrice = mockData.actual;
-          
-          if (isToday) {
-            point.forecast = prediction.price_pred;
-          }
         }
-      } else {
-        // API 데이터가 없는 경우: Mock 데이터 생성
-        if (isFuture) {
-          const change = (Math.random() - 0.48) * 8;
-          basePrice += change;
-          point.forecast = Number(basePrice.toFixed(2));
-          const uncertainty = (data.length * 0.8) + 5;
-          point.ci_upper = Number((basePrice + uncertainty).toFixed(2));
-          point.ci_lower = Number((basePrice - uncertainty).toFixed(2));
-        } else {
-          const mockData = generateMockActual(currentDate, data.length, basePrice);
-          point.actual = mockData.actual;
-          point.ai_past = mockData.ai_past;
-          point.errorRate = mockData.errorRate;
-          basePrice = mockData.actual;
-        }
+        
+        // TODO: 과거 AI 예측 데이터가 있으면 설정
+        // point.ai_past = prediction.ai_past_price;
+        // point.errorRate = ...;
       }
       
       data.push(point);
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
+    });
+    
+    // 날짜순 정렬
+    data.sort((a, b) => a.apiDate.localeCompare(b.apiDate));
     
     return data;
   } catch (error) {
@@ -182,18 +156,14 @@ export const adaptKeyFactors = (prediction) => {
 /**
  * API 설명 데이터를 ReasoningReport 형식으로 변환
  * @param {Object} explanation - API 설명 데이터
- * @returns {Object} { summary, impactNews }
+ * @returns {Object} { summary, impactNews, llmModel }
  */
 export const adaptReasoningReport = (explanation) => {
   if (!explanation || !explanation.content) return null;
   
-  // content를 파싱하여 summary와 impactNews로 분리
-  // (백엔드에서 구조화된 데이터를 제공한다고 가정)
-  // 만약 content가 단순 텍스트라면, 전체를 summary로 사용
-  
   return {
     summary: explanation.content,
-    impactNews: [], // 백엔드에서 뉴스 데이터를 별도로 제공하지 않으면 빈 배열
+    impactNews: explanation.impact_news || [], // API 응답에 포함된 고영향 뉴스
     llmModel: explanation.llm_model || 'Unknown'
   };
 };

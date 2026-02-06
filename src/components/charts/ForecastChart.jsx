@@ -160,7 +160,15 @@ const ForecastChart = ({ data, originalData, accuracy, selectedDate, onDateSelec
                 stroke="#818cf8"
                 strokeWidth={2}
                 strokeDasharray="5 5"
-                dot={false}
+                dot={<SelectedDot />}
+                activeDot={{
+                  r: 8,
+                  fill: '#818cf8',
+                  stroke: '#fff',
+                  strokeWidth: 2,
+                  cursor: 'pointer',
+                  onClick: handleActiveDotClick
+                }}
                 name="원본 예측"
               />
             )}
@@ -172,10 +180,10 @@ const ForecastChart = ({ data, originalData, accuracy, selectedDate, onDateSelec
               stroke={isSimulation ? "#06b6d4" : "#818cf8"}
               strokeWidth={isSimulation ? 3 : 2}
               strokeDasharray={isSimulation ? "8 4" : "5 5"}
-              dot={<SelectedDot />}
-              activeDot={{
+              dot={isSimulation ? false : <SelectedDot />}
+              activeDot={isSimulation ? false : {
                 r: 8,
-                fill: isSimulation ? '#06b6d4' : '#818cf8',
+                fill: '#818cf8',
                 stroke: '#fff',
                 strokeWidth: 2,
                 cursor: 'pointer',

@@ -1,26 +1,76 @@
 import { useState } from 'react';
-import { Sliders, TrendingUp, TrendingDown, RotateCcw, Save, BarChart3, Play } from 'lucide-react';
-import { 
-  DEFAULT_FEATURE_VALUES, 
-  FEATURE_CONFIG, 
-  calculateWhatIfForecast 
-} from '../../data/mockData';
+import { Sliders, TrendingUp, TrendingDown, RotateCcw, Save, BarChart3, Play, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { fetchSimulation } from '../../services/api';
+import { toAPIDateFormat } from '../../utils/dataAdapter';
+
+// 새로운 Feature 설정
+const DEFAULT_FEATURE_VALUES = {
+  '10Y_Yield': 4.2,
+  'USD_Index': 103.5,
+  'pdsi': -1.0,
+  'spi30d': 0.0,
+  'spi90d': 0.0,
+};
+
+const FEATURE_CONFIG = {
+  '10Y_Yield': {
+    label: '10년물 국채 금리',
+    unit: '%',
+    min: 0,
+    max: 10,
+    step: 0.1,
+    format: (val) => `${val.toFixed(1)}%`
+  },
+  'USD_Index': {
+    label: '달러 인덱스',
+    unit: '',
+    min: 80,
+    max: 120,
+    step: 0.5,
+    format: (val) => val.toFixed(1)
+  },
+  'pdsi': {
+    label: 'Palmer 가뭄 지수',
+    unit: '',
+    min: -6,
+    max: 6,
+    step: 0.1,
+    format: (val) => val.toFixed(1)
+  },
+  'spi30d': {
+    label: '30일 강수량 지수',
+    unit: '',
+    min: -3,
+    max: 3,
+    step: 0.1,
+    format: (val) => val.toFixed(1)
+  },
+  'spi90d': {
+    label: '90일 강수량 지수',
+    unit: '',
+    min: -3,
+    max: 3,
+    step: 0.1,
+    format: (val) => val.toFixed(1)
+  },
+};
 
 /**
  * What-if 분석 대시보드 컴포넌트
  * Feature 값을 조절하여 예측 가격 변화를 시뮬레이션
  * @param {Object} props
  * @param {Function} props.onSimulate - 시뮬레이션 실행 시 호출되는 콜백 (시뮬레이션 데이터 전달)
+ * @param {number} props.baseForecast - 현재 예측 가격
+ * @param {string} props.commodity - 품목명
  */
-const WhatIfAnalysis = ({ onSimulate }) => {
+const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn' }) => {
   const [featureValues, setFeatureValues] = useState({ ...DEFAULT_FEATURE_VALUES });
   const [savedScenarios, setSavedScenarios] = useState([]);
   const [showComparison, setShowComparison] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
-
-  // 현재 예측 가격 (Mock - 실제로는 API에서 가져와야 함)
-  const baseForecast = 452.30;
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [error, setError] = useState(null);
 
   // Feature 값 업데이트 핸들러
   const handleFeatureChange = (featureKey, value) => {
@@ -31,16 +81,44 @@ const WhatIfAnalysis = ({ onSimulate }) => {
   };
 
   // 예측하기 핸들러
-  const handleSimulate = () => {
-    const result = calculateWhatIfForecast(featureValues, baseForecast);
-    setSimulationResult(result);
-    
-    // Dashboard로 시뮬레이션 데이터 전달
-    if (onSimulate) {
-      onSimulate({
-        featureValues: { ...featureValues },
-        result: result
+  const handleSimulate = async () => {
+    try {
+      setIsSimulating(true);
+      setError(null);
+      
+      // 오늘 날짜를 base_date로 사용
+      const today = new Date();
+      const baseDate = toAPIDateFormat(today);
+      
+      // API 호출
+      const result = await fetchSimulation(commodity, baseDate, featureValues);
+      
+      // 결과 저장
+      setSimulationResult({
+        originalForecast: result.original_forecast,
+        simulatedForecast: result.simulated_forecast,
+        change: result.change,
+        changePercent: result.change_percent,
+        featureImpacts: result.feature_impacts
       });
+      
+      // Dashboard로 시뮬레이션 데이터 전달
+      if (onSimulate) {
+        onSimulate({
+          featureValues: { ...featureValues },
+          result: {
+            originalForecast: result.original_forecast,
+            simulatedForecast: result.simulated_forecast,
+            change: result.change,
+            changePercent: result.change_percent
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Simulation failed:', err);
+      setError(err.message || '시뮬레이션에 실패했습니다.');
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -161,10 +239,11 @@ const WhatIfAnalysis = ({ onSimulate }) => {
       <div className="flex flex-wrap gap-3 mb-6">
         <button
           onClick={handleSimulate}
-          className="flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors text-sm font-bold shadow-lg hover:shadow-cyan-500/50"
+          disabled={isSimulating}
+          className="flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-bold shadow-lg hover:shadow-cyan-500/50"
         >
           <Play size={18} />
-          예측하기
+          {isSimulating ? '시뮬레이션 중...' : '예측하기'}
         </button>
         <button
           onClick={handleReset}
@@ -197,15 +276,31 @@ const WhatIfAnalysis = ({ onSimulate }) => {
         )}
       </div>
 
+      {/* 에러 메시지 */}
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <AlertCircle size={20} className="text-rose-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-rose-400 font-bold text-sm mb-1">시뮬레이션 오류</p>
+            <p className="text-rose-300 text-xs">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* 예측 결과 비교 섹션 */}
       <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-6 mb-6">
-        {simulationResult ? (
+        {isSimulating ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mb-4"></div>
+            <p className="text-slate-400 text-sm">시뮬레이션 중...</p>
+          </div>
+        ) : simulationResult ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div>
                 <p className="text-xs text-slate-400 uppercase font-bold mb-1">현재 예측</p>
                 <p className="text-2xl font-bold text-slate-300 font-mono">
-                  ${baseForecast.toFixed(2)}
+                  ${simulationResult.originalForecast.toFixed(2)}
                 </p>
               </div>
               <div>

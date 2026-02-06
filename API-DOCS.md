@@ -147,9 +147,7 @@
       "value": "15.4K",
       "numeric_value": 15400,
       "trend": 5.2,
-      "unit": "Contracts",
       "impact": "High",
-      "group": "Sentiment"
     },
     {
       "metric_id": "open_interest",
@@ -157,9 +155,7 @@
       "value": "1.2M",
       "numeric_value": 1200000,
       "trend": 1.8,
-      "unit": "Total Vol",
       "impact": "Medium",
-      "group": "Liquidity"
     },
     {
       "metric_id": "wti_crude",
@@ -167,158 +163,54 @@
       "value": "$75.50",
       "numeric_value": 75.50,
       "trend": 3.2,
-      "unit": "Energy Cost",
       "impact": "High",
-      "group": "Macro"
     },
-    {
-      "metric_id": "dollar_index",
-      "label": "Dollar Index",
-      "value": "104.2",
-      "numeric_value": 104.2,
-      "trend": -0.5,
-      "unit": "DXY",
-      "impact": "Medium",
-      "group": "Macro"
-    },
-    {
-      "metric_id": "ethanol_prod",
-      "label": "Ethanol Production",
-      "value": "1.05M",
-      "numeric_value": 1.05,
-      "trend": 2.1,
-      "unit": "Barrels/Day",
-      "impact": "High",
-      "group": "Demand"
-    },
-    {
-      "metric_id": "baltic_dry",
-      "label": "Baltic Dry Index",
-      "value": "1,450",
-      "numeric_value": 1450,
-      "trend": -4.5,
-      "unit": "Freight Cost",
-      "impact": "Low",
-      "group": "Logistics"
-    },
-    {
-      "metric_id": "brazil_rain",
-      "label": "Brazil Rain",
-      "value": "12.4mm",
-      "numeric_value": 12.4,
-      "trend": -15.4,
-      "unit": "Mato Grosso",
-      "impact": "High",
-      "group": "Weather"
-    },
-    {
-      "metric_id": "crop_condition",
-      "label": "Crop Condition",
-      "value": "68%",
-      "numeric_value": 68,
-      "trend": -2.0,
-      "unit": "Good/Excl.",
-      "impact": "High",
-      "group": "Quality"
-    }
+    
   ]
 }
 ```
 
 **설명:**
 - `trend`: 전일 대비 변화율 (%)
-- `impact`: 가격에 미치는 영향도 ("High", "Medium", "Low")
-- `group`: 지표 그룹 분류
+- `impact`: 가격에 미치는 영향도 ("High", "Medium", "Low") 
 
 ---
 
 ## 4. News (뉴스 피드)
 
 ### 🔵 Get News Feed
-**현재 상태:** Mock 데이터 (`NEWS_ITEMS`)  
-**필요한 API:** 농산물 관련 뉴스 조회
+**현재 상태:** ✅ API 연동 완료  
+**엔드포인트:** `GET /api/newsdb`
 
-- **URL:** `GET /api/news`
 - **Query Parameters:**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-| :--- | :--- | :---: | :--- |
-| `commodity` | string | ❌ | 품목명 (전체 또는 특정 품목) |
-| `limit` | integer | ❌ | 조회 개수 (기본값: 20) |
-| `offset` | integer | ❌ | 페이지네이션 offset |
+| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+| :--- | :--- | :---: | :--- | :--- |
+| `skip` | integer | ❌ | 0 | 페이지네이션 offset |
+| `limit` | integer | ❌ | 10 | 조회 개수 |
 
 - **Response (200 OK):**
 
 ```json
-{
-  "total": 100,
-  "news": [
-    {
-      "id": "n001",
-      "source": "WSJ",
-      "title": "아르헨티나 항만 파업으로 곡물 선적 지연",
-      "sentiment": "positive",
-      "time": "12h ago",
-      "date": "2026-01-29",
-      "content": "아르헨티나 주요 항만에서 노동자 파업이 시작되면서..."
-    }
-  ]
-}
+[
+  {
+    "id": 0,
+    "content": "아르헨티나 항만 파업으로 곡물 선적 지연되고 있습니다...",
+    "source_url": "https://www.wsj.com/...",
+    "created_at": "2026-02-04T06:14:57.801Z"
+  }
+]
 ```
 
-**설명:**
-- `sentiment`: 뉴스 감정 분석 ("positive", "negative", "neutral")
-- `time`: 상대 시간 표시용
-- `content`: 뉴스 본문 (선택사항)
+**필드 설명:**
+- `id`: 뉴스 고유 ID
+- `content`: 뉴스 내용
+- `source_url`: 원문 링크
+- `created_at`: 생성 일시 (ISO 8601)
 
 ---
 
-## 5. Similar Patterns (유사 패턴 분석)
-
-### 🔵 Get Similar Historical Patterns
-**현재 상태:** Mock 데이터 (`getSimilarPatterns`)  
-**필요한 API:** 현재 패턴과 유사한 과거 사례 조회
-
-- **URL:** `GET /api/similar-patterns`
-- **Query Parameters:**
-
-| 파라미터 | 타입 | 필수 | 설명 |
-| :--- | :--- | :---: | :--- |
-| `commodity` | string | ✅ | 품목명 |
-| `start_date` | string (date) | ✅ | 현재 패턴 시작일 |
-| `end_date` | string (date) | ✅ | 현재 패턴 종료일 |
-| `top_n` | integer | ❌ | 반환할 유사 패턴 개수 (기본값: 3) |
-
-- **Response (200 OK):**
-
-```json
-{
-  "commodity": "Corn",
-  "current_pattern_range": "2025-12-05 ~ 2026-02-03",
-  "similar_patterns": [
-    {
-      "rank": 1,
-      "similarity": 87.2,
-      "period_start": "2024-07-01",
-      "period_end": "2024-07-30",
-      "price_start": 420.50,
-      "price_end": 445.20,
-      "price_change": 5.87,
-      "outcome_after_60_days": 8.2,
-      "key_factors": ["폭염 경보", "에탄올 수요 급증", "순매수 확대"]
-    }
-  ]
-}
-```
-
-**설명:**
-- `similarity`: 패턴 유사도 (0-100)
-- `outcome_after_60_days`: 해당 패턴 이후 60일간 가격 변화율 (%)
-- `key_factors`: 당시 주요 영향 요인들
-
----
-
-## 6. Historical Prices (과거 실제 가격)
+## 5. Historical Prices (과거 실제 가격)
 
 ### 🔵 Get Historical Actual Prices
 **현재 상태:** Mock 데이터 (클라이언트에서 랜덤 생성)  
@@ -358,7 +250,7 @@
 
 ---
 
-## 7. What-If Simulation (시뮬레이션)
+## 6. What-If Simulation (시뮬레이션)
 
 ### 🟢 POST What-If Simulation
 **현재 상태:** 클라이언트 사이드 계산 (`calculateWhatIfForecast`)  
@@ -406,7 +298,7 @@
 
 ---
 
-## 8. High-Impact News Analysis (고영향 뉴스 분석)
+## 7. High-Impact News Analysis (고영향 뉴스 분석)
 
 ### 🔵 Get High-Impact News
 **현재 상태:** `explanation` 응답에 포함되어야 하나, 현재는 Mock  
@@ -446,10 +338,9 @@
 
 ### 🟡 Medium Priority (사용자 경험 향상)
 4. **News Feed** - 뉴스 섹션 실시간 데이터
-5. **Similar Patterns** - AI 분석 고도화
 
 ### 🟢 Low Priority (선택 기능)
-6. **What-If Simulation** - 현재 클라이언트 계산으로 동작 가능 (정확도는 낮음)
+5. **What-If Simulation** - 현재 클라이언트 계산으로 동작 가능 (정확도는 낮음)
 
 ---
 
@@ -471,7 +362,6 @@
     │ ✅ /api/explanations              │ ← 연동 완료
     │ ❌ /api/market-metrics            │ ← Mock 사용 중
     │ ❌ /api/news                      │ ← Mock 사용 중
-    │ ❌ /api/similar-patterns          │ ← Mock 사용 중
     │ ❌ /api/historical-prices         │ ← Mock 생성 중
     │ ❌ /api/simulate                  │ ← 클라이언트 계산
     └───────────────────────────────────┘

@@ -12,8 +12,17 @@ const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8000';
  * @returns {Promise<Object>} API 응답 데이터
  */
 const apiRequest = async (endpoint, options = {}) => {
+  const url = `${BASE_URL}${endpoint}`;
+  const startTime = Date.now();
+  
+  // 요청 로그
+  console.group(`🌐 API Request: ${options.method || 'GET'} ${endpoint}`);
+  console.log('📤 URL:', url);
+  if (options.body) {
+    console.log('📦 Request Body:', JSON.parse(options.body));
+  }
+  
   try {
-    const url = `${BASE_URL}${endpoint}`;
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -22,32 +31,43 @@ const apiRequest = async (endpoint, options = {}) => {
       ...options,
     });
 
+    const duration = Date.now() - startTime;
+    
     if (!response.ok) {
+      console.error(`❌ Response Status: ${response.status} ${response.statusText}`);
+      console.error(`⏱️ Duration: ${duration}ms`);
+      console.groupEnd();
       throw new Error(`API Error: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    
+    // 응답 로그
+    console.log(`✅ Response Status: ${response.status}`);
+    console.log(`⏱️ Duration: ${duration}ms`);
+    console.log('📥 Response Data:', data);
+    console.groupEnd();
+    
+    return data;
   } catch (error) {
-    console.error(`API Request Failed [${endpoint}]:`, error);
+    const duration = Date.now() - startTime;
+    console.error(`❌ API Request Failed`);
+    console.error(`⏱️ Duration: ${duration}ms`);
+    console.error('Error:', error);
+    console.groupEnd();
     throw error;
   }
 };
 
 /**
- * 예측 데이터 목록 조회
+ * 예측 데이터 + 과거 실제 가격 조회
  * GET /api/predictions
- * @param {string} commodity - 품목명 (예: "Corn")
- * @param {string} startDate - 조회 시작일 (YYYY-MM-DD)
- * @param {string} endDate - 조회 종료일 (YYYY-MM-DD)
- * @returns {Promise<Array>} 예측 데이터 배열
+ * 자동으로 오늘-30일 ~ 오늘+60일 범위의 예측 + 과거 30일 실제 가격 반환
+ * @param {string} commodity - 품목명 (예: "corn")
+ * @returns {Promise<Object>} { predictions: [], historical_prices: [] }
  */
-export const fetchPredictions = async (commodity, startDate, endDate) => {
-  const params = new URLSearchParams({
-    commodity,
-    start_date: startDate,
-    end_date: endDate,
-  });
-
+export const fetchPredictions = async (commodity) => {
+  const params = new URLSearchParams({ commodity });
   return apiRequest(`/api/predictions?${params}`);
 };
 
@@ -99,4 +119,55 @@ export const createExplanation = async (explanationData) => {
     method: 'POST',
     body: JSON.stringify(explanationData),
   });
+};
+
+/**
+ * 뉴스 목록 조회
+ * GET /api/newsdb
+ * @param {number} skip - 페이지네이션 offset (기본값: 0)
+ * @param {number} limit - 조회 개수 (기본값: 10)
+ * @returns {Promise<Array>} 뉴스 데이터 배열
+ */
+export const fetchNews = async (skip = 0, limit = 10) => {
+  const params = new URLSearchParams({
+    skip: skip.toString(),
+    limit: limit.toString(),
+  });
+  
+  return apiRequest(`/api/newsdb?${params}`);
+};
+
+/**
+ * What-If 시뮬레이션
+ * POST /api/simulate
+ * @param {string} commodity - 품목명
+ * @param {string} baseDate - 기준 날짜 (YYYY-MM-DD)
+ * @param {Object} featureOverrides - 변경할 Feature들
+ * @returns {Promise<Object>} 시뮬레이션 결과
+ */
+export const fetchSimulation = async (commodity, baseDate, featureOverrides) => {
+  return apiRequest('/api/simulate', {
+    method: 'POST',
+    body: JSON.stringify({
+      commodity,
+      base_date: baseDate,
+      feature_overrides: featureOverrides,
+    }),
+  });
+};
+
+/**
+ * 시장 지표 조회
+ * GET /api/market-metrics
+ * @param {string} commodity - 품목명
+ * @param {string} date - 조회 날짜 (YYYY-MM-DD)
+ * @returns {Promise<Object>} 시장 지표 데이터
+ */
+export const fetchMarketMetrics = async (commodity, date) => {
+  const params = new URLSearchParams({
+    commodity,
+    date,
+  });
+  
+  return apiRequest(`/api/market-metrics?${params}`);
 };
