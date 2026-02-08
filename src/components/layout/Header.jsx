@@ -14,7 +14,7 @@ const Header = () => {
             <Sprout className="text-emerald-400 w-5 h-5" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">
-            AgriFlow <span className="text-slate-400">AI</span>{' '}
+            Cornstradamus
             <span className="text-xs font-normal text-slate-500 ml-1">
               Feed & Crop Intelligence
             </span>
