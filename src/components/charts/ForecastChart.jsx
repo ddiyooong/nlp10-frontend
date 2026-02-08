@@ -73,7 +73,7 @@ const ForecastChart = ({ data, originalData, accuracy, selectedDate, onDateSelec
           <p className="text-slate-400 text-sm">
             {isSimulation 
               ? 'What-if 시뮬레이션 결과: 변수 조절에 따른 미래 60일 예측'
-              : '과거 30일 모델 검증 및 향후 60일 추세 전망'
+              : '과거 30일 모델 검증 (보라색) + 향후 60일 추세 전망 (청록색)'
             }
           </p>
         </div>
@@ -83,6 +83,10 @@ const ForecastChart = ({ data, originalData, accuracy, selectedDate, onDateSelec
           <div className="flex items-center gap-2 px-2">
             <div className="w-3 h-0.5 bg-emerald-500"></div>
             <span className="text-slate-300">실제 가격 (Actual)</span>
+          </div>
+          <div className="flex items-center gap-2 px-2 border-l border-slate-800">
+            <div className="w-3 h-0.5 border-t border-dashed border-purple-400"></div>
+            <span className="text-purple-300">과거 모델 예측</span>
           </div>
           {isSimulation && (
             <div className="flex items-center gap-2 px-2 border-l border-slate-800">
@@ -191,8 +195,8 @@ const ForecastChart = ({ data, originalData, accuracy, selectedDate, onDateSelec
               }}
               name={isSimulation ? "시뮬레이션 예측" : "forecast"}
             />
-            <Line type="monotone" dataKey="ai_past" stroke="#a78bfa" strokeWidth={2} strokeDasharray="4 4" dot={false} name="ai_past" />
-            <Line type="monotone" dataKey="actual" stroke="#10B981" strokeWidth={3} dot={false} name="actual" />
+            <Line type="monotone" dataKey="ai_past" stroke="#a78bfa" strokeWidth={2} strokeDasharray="4 4" dot={false} name="ai_past" connectNulls={true} />
+            <Line type="monotone" dataKey="actual" stroke="#10B981" strokeWidth={3} dot={false} name="actual" connectNulls={true} />
           </ComposedChart>
         </ResponsiveContainer>
         {onDateSelect && (

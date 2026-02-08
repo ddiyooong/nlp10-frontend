@@ -82,32 +82,44 @@ export const calculateAccuracy = (data) => {
  * @returns {Array} 시뮬레이션 데이터 배열
  */
 export const generateSimulationData = (originalData, simulationResult) => {
-  if (!simulationResult || !simulationResult.result) {
+  // 안전성 체크: 새로운 API 구조 확인
+  if (!simulationResult || 
+      !simulationResult.predictions || 
+      !Array.isArray(simulationResult.predictions)) {
+    console.warn('Invalid simulation result:', simulationResult);
     return originalData;
   }
 
-  const today = new Date();
-  const changePercent = simulationResult.result.changePercent / 100;
+  // predictions 배열을 날짜별 Map으로 변환
+  const predictionMap = new Map();
+  simulationResult.predictions.forEach(pred => {
+    predictionMap.set(pred.date, pred);
+  });
   
   return originalData.map((point) => {
     const newPoint = { ...point };
     
     // 미래 데이터만 시뮬레이션 결과 반영
-    if (point.isFuture && point.forecast) {
-      // 원본 예측에 변화율을 적용
-      const simulatedPrice = point.forecast * (1 + changePercent);
-      newPoint.forecast = Number(simulatedPrice.toFixed(2));
+    if (point.isFuture && point.apiDate) {
+      const simPrediction = predictionMap.get(point.apiDate);
       
-      // 신뢰구간도 동일한 비율로 조정
-      if (point.ci_upper) {
-        newPoint.ci_upper = Number((point.ci_upper * (1 + changePercent)).toFixed(2));
+      if (simPrediction) {
+        // API에서 받은 시뮬레이션 가격 직접 사용
+        newPoint.forecast = Number(simPrediction.simulated_price.toFixed(2));
+        
+        // 신뢰구간은 변화율 비율로 조정
+        if (point.ci_upper && simPrediction.original_price > 0) {
+          const ratio = simPrediction.simulated_price / simPrediction.original_price;
+          newPoint.ci_upper = Number((point.ci_upper * ratio).toFixed(2));
+        }
+        if (point.ci_lower && simPrediction.original_price > 0) {
+          const ratio = simPrediction.simulated_price / simPrediction.original_price;
+          newPoint.ci_lower = Number((point.ci_lower * ratio).toFixed(2));
+        }
+        
+        // 시뮬레이션 데이터임을 표시
+        newPoint.isSimulation = true;
       }
-      if (point.ci_lower) {
-        newPoint.ci_lower = Number((point.ci_lower * (1 + changePercent)).toFixed(2));
-      }
-      
-      // 시뮬레이션 데이터임을 표시
-      newPoint.isSimulation = true;
     }
     
     return newPoint;

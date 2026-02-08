@@ -1,368 +1,616 @@
-# API-DOCS
+# 🌐 프론트엔드 API 가이드
 
-
----
-
-## 1. Predictions (가격 예측)
-
-### 🟢 Create Prediction
-새로운 가격 예측 데이터를 생성합니다.
-
-- **URL:** `POST /api/predictions`
-- **Request Body:** `application/json`
-
-| 필드명 | 타입 | 설명 |
-| :--- | :--- | :--- |
-| `target_date` | string (date) | 예측 대상 날짜 (예: "2026-02-03") |
-| `commodity` | string | 품목명 |
-| `price_pred` | number | 예측 가격 |
-| `conf_lower` | number | 신뢰 구간 하한값 |
-| `conf_upper` | number | 신뢰 구간 상한값 |
-| `top1_factor` | string | 주요 영향 요인 1 |
-| `top1_impact` | number | 요인 1의 영향도 |
-| ... | ... | (top2~top5 동일 형식) |
-
-- **Response (200 OK):**
-  - 생성된 데이터 객체 (`id`, `created_at` 필드 포함)
+**Base URL**: `http://44.252.76.158:8000`
 
 ---
 
-### 🔵 Get Predictions
-특정 기간 내의 품목별 예측 리스트를 조회합니다.
+## 📡 API 개요
 
-- **URL:** `GET /api/predictions`
-- **Query Parameters:**
+### 기본 정보
 
-| 파라미터 | 타입 | 필수 | 설명 |
-| :--- | :--- | :---: | :--- |
-| `commodity` | string | ✅ | 조회할 품목명 |
-| `start_date` | string (date) | ✅ | 조회 시작일 (YYYY-MM-DD) |
-| `end_date` | string (date) | ✅ | 조회 종료일 (YYYY-MM-DD) |
+| 항목 | 값 |
+|------|-----|
+| **Base URL** | `http://44.252.76.158:8000` |
+| **프로토콜** | HTTP/HTTPS |
+| **데이터 형식** | JSON |
+| **문자 인코딩** | UTF-8 |
+| **날짜 형식** | `YYYY-MM-DD` |
+| **Timestamp 형식** | ISO 8601 |
 
-- **Response (200 OK):**
-  - 예측 데이터 객체들의 배열 (`Array[]`)
+### 지원 품목 (Commodity)
 
----
-
-### 🔵 Get Prediction By Date
-특정 날짜와 품목을 기준으로 단일 예측 데이터를 조회합니다.
-
-- **URL:** `GET /api/predictions/{target_date}`
-- **Path Parameters:**
-  - `target_date`: 조회 타겟 날짜 (YYYY-MM-DD)
-- **Query Parameters:**
-  - `commodity`: 품목명 (Required)
+현재 지원되는 품목:
+- `corn` - 옥수수
 
 ---
 
-## 2. Explanations (예측 분석 설명)
+## 🔐 인증
 
-### 🟢 Create Explanation
-예측 결과에 대한 상세 분석 내용(LLM 생성 등)을 저장합니다.
+**현재 버전**: 인증 불필요
 
-- **URL:** `POST /api/explanations`
-- **Request Body:** `application/json`
+향후 API 키 기반 인증이 추가될 수 있습니다.
+
+---
+
+## 📦 공통 응답 형식
+
+### 성공 응답
 
 ```json
 {
-  "pred_id": 0,
-  "content": "이 품목은 유가 상승의 영향으로...",
-  "llm_model": "gpt-4o"
+  "data": {...},
+  "status": "success"
 }
 ```
 
-### 🔵 Get Explanation By Date
-날짜와 품목을 기준으로 해당 예측 데이터에 대한 상세 분석 설명을 조회합니다.
+### 에러 응답
 
-- **Endpoint:** `GET /api/explanations/{target_date}`
-- **Content-Type:** `application/json`
-
-#### 1. Parameters
-| 구분 | 파라미터명 | 타입 | 필수 여부 | 설명 |
-| :--- | :--- | :--- | :---: | :--- |
-| **Path** | `target_date` | `string($date)` | ✅ | 조회 대상 날짜 (예: `2026-02-03`) |
-| **Query** | `commodity` | `string` | ✅ | 품목명 (예: `Corn`, `Soybean` 등) |
-
-#### 2. Responses
-**✅ 200: Successful Response**
-- **Description:** 해당 날짜와 품목에 일치하는 분석 데이터를 반환합니다.
-- **Body:**
 ```json
 {
-  "id": 0,           // Explanation 고유 ID
-  "pred_id": 0,      // 연결된 예측 데이터(Prediction) ID
-  "content": "string", // 상세 분석 내용 (LLM 생성 텍스트 등)
-  "llm_model": "string", // 분석에 사용된 모델명
-  "created_at": "2026-02-03T13:57:58.415Z" // 생성 일시
+  "detail": "에러 메시지"
 }
 ```
 
----
+### HTTP 상태 코드
 
-## 현재 데이터 연동 상태 분석
-
-### ✅ API 연동 완료
-1. **예측 가격 데이터** - `/api/predictions`
-   - 차트 그래프 (과거 30일 + 미래 60일)
-   - 예측 가격, 신뢰구간 상/하한
-
-2. **핵심 변수 기여도** - `/api/predictions` 응답의 `top1_factor ~ top5_factor`
-   - KeyFactors 컴포넌트에 표시
-
-3. **AI 예측 근거** - `/api/explanations/{target_date}`
-   - ReasoningReport 컴포넌트의 Executive Summary
+| 코드 | 의미 |
+|------|------|
+| `200` | 성공 |
+| `400` | 잘못된 요청 |
+| `404` | 리소스 없음 |
+| `500` | 서버 오류 |
 
 ---
 
-## ⚠️ Mock 데이터 사용 중 (API 구현 필요)
-
-아래 기능들은 현재 프론트엔드 Mock 데이터를 사용하고 있습니다. 백엔드 API 구현이 필요합니다.
+## 🎯 API 엔드포인트
 
 ---
 
-## 3. Market Metrics (시장 지표)
+## 1️⃣ 예측 (Predictions)
 
-### 🔵 Get Market Metrics
-**현재 상태:** Mock 데이터 (`MARKET_METRICS`)  
-**필요한 API:** 실시간 시장 지표 조회
+### 1-1. 최신 예측 + 실제 가격 조회
 
-- **URL:** `GET /api/market-metrics`
-- **Query Parameters:**
+가장 최근 배치의 예측 데이터와 과거 30일간 실제 가격을 함께 반환합니다.
+- `predictions`: 오늘-30일 ~ 오늘+60일 범위의 예측 (target_date별 최신 created_at)
+- `historical_prices`: 과거 30일 ~ 오늘까지의 실제 거래 가격
 
-| 파라미터 | 타입 | 필수 | 설명 |
-| :--- | :--- | :---: | :--- |
-| `commodity` | string | ✅ | 품목명 |
-| `date` | string (date) | ❌ | 조회 날짜 (기본값: 오늘) |
+```http
+GET /api/predictions?commodity={commodity}
+```
 
-- **Response (200 OK):**
+**Parameters:**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `commodity` | string | ✅ | 품목명 (예: "corn") |
 
+**Response:**
 ```json
 {
-  "commodity": "Corn",
-  "date": "2026-02-03",
-  "metrics": [
+  "predictions": [
     {
-      "metric_id": "net_long",
-      "label": "Net Long (순매수)",
-      "value": "15.4K",
-      "numeric_value": 15400,
-      "trend": 5.2,
-      "impact": "High",
+      "id": 1,
+      "target_date": "2026-02-07",
+      "commodity": "corn",
+      "price_pred": 450.50,
+      "conf_lower": 445.20,
+      "conf_upper": 455.80,
+      "top1_factor": "close",
+      "top1_impact": 0.25,
+      "top2_factor": "USD_Index",
+      "top2_impact": 0.18,
+      "top3_factor": "10Y_Yield",
+      "top3_impact": 0.15,
+      "model_type": "TFT_v2",
+      "created_at": "2026-02-06T12:00:00"
+    }
+  ],
+  "historical_prices": [
+    {
+      "date": "2026-01-07",
+      "actual_price": 448.25
     },
     {
-      "metric_id": "open_interest",
-      "label": "Open Interest",
-      "value": "1.2M",
-      "numeric_value": 1200000,
-      "trend": 1.8,
-      "impact": "Medium",
-    },
-    {
-      "metric_id": "wti_crude",
-      "label": "WTI Crude Oil",
-      "value": "$75.50",
-      "numeric_value": 75.50,
-      "trend": 3.2,
-      "impact": "High",
-    },
-    
+      "date": "2026-01-08",
+      "actual_price": 449.50
+    }
   ]
 }
 ```
 
-**설명:**
-- `trend`: 전일 대비 변화율 (%)
-- `impact`: 가격에 미치는 영향도 ("High", "Medium", "Low") 
+---
+
+### 1-2. 특정 날짜 예측 조회
+
+특정 날짜의 예측 데이터를 조회합니다.
+
+```http
+GET /api/predictions/{target_date}?commodity={commodity}
+```
+
+**Parameters:**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `target_date` | string | ✅ | 날짜 (YYYY-MM-DD) |
+| `commodity` | string | ✅ | 품목명 |
+
+**Response:**
+```json
+{
+  "id": 1,
+  "target_date": "2026-02-07",
+  "commodity": "corn",
+  "price_pred": 450.50,
+  "conf_lower": 445.20,
+  "conf_upper": 455.80,
+  "top1_factor": "close",
+  "top1_impact": 0.25,
+  "top2_factor": "USD_Index",
+  "top2_impact": 0.18,
+  "top3_factor": "10Y_Yield",
+  "top3_impact": 0.15,
+  "top4_factor": "volume",
+  "top4_impact": 0.12,
+  "top5_factor": "news_pca_0",
+  "top5_impact": 0.10,
+  // ... top6 ~ top20
+  "model_type": "TFT_v2",
+  "created_at": "2026-02-06T12:00:00"
+}
+```
 
 ---
 
-## 4. News (뉴스 피드)
+## 2️⃣ 설명 (Explanations)
 
-### 🔵 Get News Feed
-**현재 상태:** ✅ API 연동 완료  
-**엔드포인트:** `GET /api/newsdb`
+### 2-1. 특정 날짜 예측 설명 조회
 
-- **Query Parameters:**
+AI가 생성한 예측에 대한 자연어 설명을 조회합니다.
 
-| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
-| :--- | :--- | :---: | :--- | :--- |
-| `skip` | integer | ❌ | 0 | 페이지네이션 offset |
-| `limit` | integer | ❌ | 10 | 조회 개수 |
+```http
+GET /api/explanations/{target_date}?commodity={commodity}
+```
 
-- **Response (200 OK):**
+**Parameters:**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `target_date` | string | ✅ | 날짜 (YYYY-MM-DD) |
+| `commodity` | string | ✅ | 품목명 |
 
+**Response:**
+```json
+{
+  "id": 1,
+  "pred_id": 1,
+  "content": "이번 옥수수 선물 가격 전망은 342.03으로 설정되었으며, 변동 범위는 335.12에서 350.15로 예상됩니다. 이러한 전망은 다양한 요소들의 상호작용에 기반합니다.",
+  "llm_model": "gpt-4",
+  "impact_news": [
+    {
+      "title": "[2026-02-02] A 3-step Grain Marketing Plan to Help Manage Risk in 2026 - Successful Farming",
+      "impact": 0.2119,
+      "rank": 3
+    }
+  ],
+  "top_factors": [
+    {
+      "name": "예측 경과 시점",
+      "category": "시장 구조 (Market Structure)",
+      "impact": 0.6993,
+      "ratio": 0.3497
+    },
+    {
+      "name": "고가",
+      "category": "기술적 지표 (Technical Indicators)",
+      "impact": 0.4233,
+      "ratio": 0.2117
+    },
+    {
+      "name": "기사",
+      "category": "외부 이벤트 (External Events)",
+      "impact": 0.2119,
+      "ratio": 0.106
+    }
+  ],
+  "category_summary": [
+    {
+      "category": "시장 구조 (Market Structure)",
+      "impact_sum": 1.0267,
+      "ratio": 0.5134
+    },
+    {
+      "category": "기술적 지표 (Technical Indicators)",
+      "impact_sum": 0.6938,
+      "ratio": 0.3469
+    },
+    {
+      "category": "외부 이벤트 (External Events)",
+      "impact_sum": 0.2119,
+      "ratio": 0.106
+    }
+  ],
+  "created_at": "2026-02-06T12:00:00"
+}
+```
+
+---
+
+## 3️⃣ 시뮬레이션 (Simulation)
+
+### 3-1. What-If 시뮬레이션
+
+특정 조건을 변경했을 때 예측 가격이 어떻게 변하는지 시뮬레이션합니다.
+
+```http
+POST /api/simulate
+```
+
+**Request Body:**
+```json
+{
+  "commodity": "corn",
+  "base_date": "2026-02-06",
+  "feature_overrides": {
+    "10Y_Yield": 4.5,
+    "USD_Index": 105.0,
+    "pdsi": -2.0
+  }
+}
+```
+
+**참고:** `feature_overrides`의 값은 **절대값 (현재값)**입니다.
+- 예: `"10Y_Yield": 4.5` → 4.5%로 설정
+- 예: `"USD_Index": 105.0` → 105.0으로 설정
+- 예: `"pdsi": -2.0` → -2.0으로 설정
+
+**Parameters:**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `commodity` | string | ✅ | 품목명 |
+| `base_date` | string | ✅ | 기준 날짜 (YYYY-MM-DD) |
+| `feature_overrides` | object | ✅ | 변경할 Feature들 |
+
+**조정 가능한 Features:**
+| Feature | 설명 | 범위 |
+|---------|------|------|
+| `10Y_Yield` | 미국 10년물 국채 금리 (%) | 0 ~ 10 |
+| `USD_Index` | 달러 인덱스 | 80 ~ 120 |
+| `pdsi` | Palmer Drought Severity Index | -6 ~ 6 |
+| `spi30d` | 30일 강수량 지수 | -3 ~ 3 |
+| `spi90d` | 90일 강수량 지수 | -3 ~ 3 |
+
+**Response:**
+```json
+{
+  "base_date": "2026-02-06",
+  "predictions": [
+    {
+      "date": "2026-02-07",
+      "original_price": 450.5,
+      "simulated_price": 455.2,
+      "change": 4.7,
+      "change_percent": 1.04
+    },
+    {
+      "date": "2026-02-08",
+      "original_price": 451.3,
+      "simulated_price": 456.8,
+      "change": 5.5,
+      "change_percent": 1.22
+    }
+    // ... 60일치 데이터
+  ],
+  "feature_impacts": [
+    {
+      "feature": "10Y_Yield",
+      "current_value": 4.2,
+      "new_value": 4.5,
+      "value_change": 0.3,
+      "contribution": 0
+    },
+    {
+      "feature": "USD_Index",
+      "current_value": 103.5,
+      "new_value": 105.0,
+      "value_change": 1.5,
+      "contribution": 0
+    },
+    {
+      "feature": "pdsi",
+      "current_value": -1.0,
+      "new_value": -2.0,
+      "value_change": -1.0,
+      "contribution": 0
+    }
+  ],
+  "summary": {
+    "total_days": 60,
+    "avg_original_price": 450.5,
+    "avg_simulated_price": 456.2,
+    "avg_change": 5.7,
+    "avg_change_percent": 1.27,
+    "total_change": 342.0,
+    "max_change": 8.5,
+    "min_change": 2.1,
+    "max_change_date": "2026-03-15",
+    "min_change_date": "2026-02-10",
+    "feature_contributions": {
+      "10Y_Yield": 2.5,
+      "USD_Index": 3.2,
+      "pdsi": -0.5
+    },
+    "total_contribution": 5.2
+  }
+}
+```
+
+---
+
+## 4️⃣ 뉴스 (News)
+
+### 4-1. 뉴스 목록 조회
+
+최신 뉴스 데이터를 조회합니다.
+
+```http
+GET /api/newsdb?skip={skip}&limit={limit}
+```
+
+**Parameters:**
+| 이름 | 타입 | 필수 | 기본값 | 설명 |
+|------|------|------|--------|------|
+| `skip` | integer | ❌ | 0 | 건너뛸 개수 |
+| `limit` | integer | ❌ | 10 | 조회할 개수 |
+
+**Response:**
 ```json
 [
   {
-    "id": 0,
-    "content": "아르헨티나 항만 파업으로 곡물 선적 지연되고 있습니다...",
-    "source_url": "https://www.wsj.com/...",
-    "created_at": "2026-02-04T06:14:57.801Z"
+    "id": 1,
+    "title": "중국, 옥수수 수입량 증가 전망",
+    "content": "중국의 축산업 성장으로 옥수수 수요가 증가하고 있습니다...",
+    "source_url": "https://reuters.com/article/...",
+    "created_at": "2026-02-06T10:30:00"
+  },
+  {
+    "id": 2,
+    "title": "미국 옥수수 재배 면적 감소",
+    "content": "올해 미국의 옥수수 재배 면적이 전년 대비 5% 감소할 것으로...",
+    "source_url": "https://bloomberg.com/article/...",
+    "created_at": "2026-02-06T09:15:00"
   }
 ]
 ```
 
-**필드 설명:**
-- `id`: 뉴스 고유 ID
-- `content`: 뉴스 내용
-- `source_url`: 원문 링크
-- `created_at`: 생성 일시 (ISO 8601)
-
 ---
 
-## 5. Historical Prices (과거 실제 가격)
+## 5️⃣ 시장 지표 (Market Metrics)
 
-### 🔵 Get Historical Actual Prices
-**현재 상태:** Mock 데이터 (클라이언트에서 랜덤 생성)  
-**필요한 API:** 과거 실제 가격 데이터 조회
+### 6-1. 특정 날짜 시장 지표 조회
 
-- **URL:** `GET /api/historical-prices`
-- **Query Parameters:**
+특정 날짜의 모든 시장 지표를 조회합니다.
 
-| 파라미터 | 타입 | 필수 | 설명 |
-| :--- | :--- | :---: | :--- |
+```http
+GET /api/market-metrics?commodity={commodity}&date={date}
+```
+
+**Parameters:**
+| 이름 | 타입 | 필수 | 설명 |
+|------|------|------|------|
 | `commodity` | string | ✅ | 품목명 |
-| `start_date` | string (date) | ✅ | 조회 시작일 |
-| `end_date` | string (date) | ✅ | 조회 종료일 |
+| `date` | string | ✅ | 날짜 (YYYY-MM-DD) |
 
-- **Response (200 OK):**
-
+**Response:**
 ```json
 {
-  "commodity": "Corn",
-  "prices": [
+  "commodity": "corn",
+  "date": "2026-02-06",
+  "metrics": [
     {
-      "date": "2026-01-15",
-      "actual_price": 445.30,
-      "open": 444.50,
-      "high": 446.20,
-      "low": 443.80,
-      "close": 445.30,
-      "volume": 123456
+      "metric_id": "10Y_Yield",
+      "label": "미국 10년물 국채 금리",
+      "value": "4.2%",
+      "numeric_value": 4.2,
+      "trend": 0.1,
+      "impact": "neutral"
+    },
+    {
+      "metric_id": "USD_Index",
+      "label": "달러 인덱스",
+      "value": "103.5",
+      "numeric_value": 103.5,
+      "trend": -0.5,
+      "impact": "positive"
+    },
+    {
+      "metric_id": "pdsi",
+      "label": "Palmer 가뭄 지수",
+      "value": "-1.0",
+      "numeric_value": -1.0,
+      "trend": -0.2,
+      "impact": "negative"
     }
   ]
 }
 ```
 
-**설명:**
-- 차트의 "과거 실제 가격" 표시에 사용
-- 과거 AI 예측과 실제 가격 비교에 사용
-
 ---
 
-## 6. What-If Simulation (시뮬레이션)
+## ⚠️ 에러 처리
 
-### 🟢 POST What-If Simulation
-**현재 상태:** 클라이언트 사이드 계산 (`calculateWhatIfForecast`)  
-**권장사항:** 서버 사이드로 이동 (모델 정확도 향상)
-
-- **URL:** `POST /api/simulate`
-- **Request Body:**
+### 에러 응답 형식
 
 ```json
 {
-  "commodity": "Corn",
-  "base_date": "2026-02-03",
-  "feature_overrides": {
-    "WTI": 80.0,
-    "DXY": 105.5,
-    "NET_LONG": 18000,
-    "ETHANOL_PROD": 1.15
-  }
+  "detail": "에러 메시지"
 }
 ```
 
-- **Response (200 OK):**
+### 일반적인 에러
 
+#### 404 Not Found
 ```json
 {
-  "original_forecast": 452.30,
-  "simulated_forecast": 458.75,
-  "change": 6.45,
-  "change_percent": 1.43,
-  "feature_impacts": [
-    {
-      "feature": "WTI",
-      "current_value": 75.50,
-      "new_value": 80.0,
-      "value_change": 4.5,
-      "contribution": 3.6
-    }
-  ]
+  "detail": "corn의 최신 예측 데이터가 없습니다."
 }
 ```
 
-**설명:**
-- 서버에서 실제 모델을 사용하여 시뮬레이션 수행
-- 더 정확한 예측 결과 제공
-
----
-
-## 7. High-Impact News Analysis (고영향 뉴스 분석)
-
-### 🔵 Get High-Impact News
-**현재 상태:** `explanation` 응답에 포함되어야 하나, 현재는 Mock  
-**권장사항:** `explanation` 응답 구조 확장
-
-- **Option 1: Explanation 응답 확장**
-
+#### 400 Bad Request
 ```json
 {
-  "id": 0,
-  "pred_id": 0,
-  "content": "이 품목은 유가 상승의 영향으로...",
-  "llm_model": "gpt-4o",
-  "created_at": "2026-02-03T13:57:58.415Z",
-  "impact_news": [
-    {
-      "source": "Bloomberg",
-      "title": "미 중서부 기습 폭염 경보",
-      "impact_score": 92,
-      "analysis": "공급망 충격(Supply Shock) 우려..."
-    }
-  ]
+  "detail": "조정 불가능한 feature: {'invalid_feature'}. 가능한 features: {'10Y_Yield', 'USD_Index', ...}"
 }
 ```
 
-- **Option 2: 별도 엔드포인트**
-  - `GET /api/impact-news/{target_date}?commodity=Corn`
-
----
-
-## 구현 우선순위 권장사항
-
-### 🔴 High Priority (핵심 기능)
-1. **Historical Prices** - 차트의 과거 실제 가격 표시에 필수
-2. **Market Metrics** - 대시보드 주요 지표 섹션
-3. **Explanation 확장** - `impact_news` 필드 추가
-
-### 🟡 Medium Priority (사용자 경험 향상)
-4. **News Feed** - 뉴스 섹션 실시간 데이터
-
-### 🟢 Low Priority (선택 기능)
-5. **What-If Simulation** - 현재 클라이언트 계산으로 동작 가능 (정확도는 낮음)
-
----
-
-## 데이터 흐름 요약
-
+#### 500 Internal Server Error
+```json
+{
+  "detail": "시뮬레이션 예측에 실패했습니다."
+}
 ```
-┌─────────────────────┐
-│   Frontend UI       │
-└──────────┬──────────┘
-           │
-    ┌──────▼──────┐
-    │ API Service │
-    └──────┬──────┘
-           │
-    ┌──────▼────────────────────────────┐
-    │ Backend API                       │
-    ├───────────────────────────────────┤
-    │ ✅ /api/predictions               │ ← 연동 완료
-    │ ✅ /api/explanations              │ ← 연동 완료
-    │ ❌ /api/market-metrics            │ ← Mock 사용 중
-    │ ❌ /api/news                      │ ← Mock 사용 중
-    │ ❌ /api/historical-prices         │ ← Mock 생성 중
-    │ ❌ /api/simulate                  │ ← 클라이언트 계산
-    └───────────────────────────────────┘
+
+---
+
+## 📘 타입 정의
+
+### TypeScript 타입 정의
+
+```typescript
+// 예측 데이터
+interface Prediction {
+  id: number;
+  target_date: string;  // YYYY-MM-DD
+  commodity: string;
+  price_pred: number;
+  conf_lower: number;
+  conf_upper: number;
+  top1_factor?: string;
+  top1_impact?: number;
+  top2_factor?: string;
+  top2_impact?: number;
+  top3_factor?: string;
+  top3_impact?: number;
+  top4_factor?: string;
+  top4_impact?: number;
+  top5_factor?: string;
+  top5_impact?: number;
+  // ... top6 ~ top20
+  model_type: string;
+  created_at: string;  // ISO 8601
+}
+
+// 설명 데이터
+interface TopFactorItem {
+  name: string;
+  category: string;
+  impact: number;
+  ratio: number;
+}
+
+interface HighImpactNewsItem {
+  title: string;
+  impact: number;
+  rank: number;
+}
+
+interface CategoryImpactItem {
+  category: string;
+  impact_sum: number;
+  ratio: number;
+}
+
+interface Explanation {
+  id: number;
+  pred_id: number;
+  content: string;
+  llm_model: string | null;
+  impact_news: HighImpactNewsItem[] | null;
+  top_factors: TopFactorItem[] | null;
+  category_summary: CategoryImpactItem[] | null;
+  created_at: string;
+}
+
+// 시뮬레이션
+interface SimulationRequest {
+  commodity: string;
+  base_date: string;
+  feature_overrides: {
+    [key: string]: number;
+  };
+}
+
+interface FeatureImpact {
+  feature: string;
+  current_value: number;
+  new_value: number;
+  value_change: number;
+  contribution: number;
+}
+
+interface SimulationPrediction {
+  date: string;
+  original_price: number;
+  simulated_price: number;
+  change: number;
+  change_percent: number;
+}
+
+interface SimulationSummary {
+  total_days: number;
+  avg_original_price: number;
+  avg_simulated_price: number;
+  avg_change: number;
+  avg_change_percent: number;
+  total_change: number;
+  max_change: number;
+  min_change: number;
+  max_change_date: string;
+  min_change_date: string;
+  feature_contributions: {
+    [key: string]: number;
+  };
+  total_contribution: number;
+}
+
+interface SimulationResponse {
+  base_date: string;
+  predictions: SimulationPrediction[];
+  feature_impacts: FeatureImpact[];
+  summary: SimulationSummary;
+}
+
+// 뉴스
+interface News {
+  id: number;
+  title: string;
+  content: string;
+  source_url?: string;
+  created_at: string;
+}
+
+// 실제 가격
+interface HistoricalPrice {
+  date: string;
+  actual_price: number;
+}
+
+// 예측 + 실제 가격 통합 응답
+interface PredictionsWithPricesResponse {
+  predictions: Prediction[];
+  historical_prices: HistoricalPrice[];
+}
+
+// 시장 지표
+interface MarketMetric {
+  metric_id: string;
+  label: string;
+  value: string;
+  numeric_value: number;
+  trend: number;
+  impact: 'positive' | 'negative' | 'neutral';
+}
+
+interface MarketMetricsResponse {
+  commodity: string;
+  date: string;
+  metrics: MarketMetric[];
+}
 ```

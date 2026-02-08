@@ -97,14 +97,19 @@ export const fetchChartData = async (commodity = 'corn') => {
       // 예측 데이터 설정
       if (prediction) {
         if (isFuture || isToday) {
+          // 미래/오늘: forecast로 표시
           point.forecast = prediction.price_pred;
           point.ci_upper = prediction.conf_upper;
           point.ci_lower = prediction.conf_lower;
+        } else {
+          // 과거: ai_past로 표시 (모델의 과거 예측)
+          point.ai_past = prediction.price_pred;
+          
+          // 실제 가격과 비교하여 오차율 계산
+          if (point.actual !== null && point.ai_past !== null) {
+            point.errorRate = ((Math.abs(point.actual - point.ai_past) / point.actual) * 100).toFixed(2);
+          }
         }
-        
-        // TODO: 과거 AI 예측 데이터가 있으면 설정
-        // point.ai_past = prediction.ai_past_price;
-        // point.errorRate = ...;
       }
       
       data.push(point);
@@ -122,15 +127,33 @@ export const fetchChartData = async (commodity = 'corn') => {
 };
 
 /**
- * API 예측 데이터의 topX_factor 필드를 KeyFactors 형식으로 변환
+ * API 데이터(예측/설명)를 KeyFactors 형식으로 변환
+ * 우선순위: explanation.top_factors > prediction.topX_factor
  * @param {Object} prediction - API 예측 데이터
+ * @param {Object} explanation - API 설명 데이터 (Optional)
  * @returns {Array} KeyFactors 형식 배열
  */
-export const adaptKeyFactors = (prediction) => {
-  if (!prediction) return null;
-  
+export const adaptKeyFactors = (prediction, explanation = null) => {
   const factors = [];
   const colors = ['bg-emerald-500', 'bg-indigo-500', 'bg-amber-500', 'bg-rose-500', 'bg-purple-500'];
+  
+  // 1순위: Explanation의 top_factors 사용 (ratio 기반)
+  if (explanation && explanation.top_factors && explanation.top_factors.length > 0) {
+    explanation.top_factors.slice(0, 5).forEach((factor, i) => {
+      factors.push({
+        label: factor.name,
+        group: factor.category, // 카테고리 표시
+        val: Math.round(factor.ratio * 100), // ratio를 퍼센트로 변환
+        color: colors[i % colors.length],
+        desc: `기여도: ${(factor.ratio * 100).toFixed(1)}%`
+      });
+    });
+    
+    return factors;
+  }
+  
+  // 2순위: Prediction의 topX_factor 사용 (기존 로직 fallback)
+  if (!prediction) return null;
   
   for (let i = 1; i <= 5; i++) {
     const factorKey = `top${i}_factor`;
@@ -156,14 +179,16 @@ export const adaptKeyFactors = (prediction) => {
 /**
  * API 설명 데이터를 ReasoningReport 형식으로 변환
  * @param {Object} explanation - API 설명 데이터
- * @returns {Object} { summary, impactNews, llmModel }
+ * @returns {Object} { summary, impactNews, topFactors, categorySummary, llmModel }
  */
 export const adaptReasoningReport = (explanation) => {
   if (!explanation || !explanation.content) return null;
   
   return {
     summary: explanation.content,
-    impactNews: explanation.impact_news || [], // API 응답에 포함된 고영향 뉴스
+    impactNews: explanation.impact_news || [], // 고영향 뉴스 (구조 변경)
+    topFactors: explanation.top_factors || [], // 상위 영향 요인 (새로 추가)
+    categorySummary: explanation.category_summary || [], // 카테고리별 영향도 (새로 추가)
     llmModel: explanation.llm_model || 'Unknown'
   };
 };
@@ -183,7 +208,7 @@ export const fetchDateDetail = async (commodity, targetDate) => {
     
     return {
       prediction,
-      factors: adaptKeyFactors(prediction),
+      factors: adaptKeyFactors(prediction, explanation), // explanation 전달
       reasoning: adaptReasoningReport(explanation),
     };
   } catch (error) {

@@ -1,4 +1,4 @@
-import { BrainCircuit, FileText, Zap, AlertCircle } from 'lucide-react';
+import { BrainCircuit, FileText, Zap, AlertCircle, TrendingUp, BarChart3, PieChart } from 'lucide-react';
 
 /**
  * AI 예측 근거 리포트 컴포넌트
@@ -10,6 +10,7 @@ import { BrainCircuit, FileText, Zap, AlertCircle } from 'lucide-react';
 const ReasoningReport = ({ selectedDate, reasoning }) => {
   const summary = reasoning?.summary;
   const impactNews = reasoning?.impactNews || [];
+  const categorySummary = reasoning?.categorySummary || [];
   
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl lg:col-span-2 flex flex-col">
@@ -48,12 +49,49 @@ const ReasoningReport = ({ selectedDate, reasoning }) => {
             </div>
           </div>
 
+          {/* 카테고리별 영향도 분석 (거시적 관점) */}
+          {categorySummary.length > 0 && (
+            <div>
+              <h4 className="text-slate-400 text-xs font-bold uppercase mb-3 flex items-center gap-2">
+                <PieChart size={14} className="text-indigo-400" />
+                카테고리별 영향도 분석 (Macro View)
+              </h4>
+              <div className="space-y-3">
+                {categorySummary.map((cat, idx) => (
+                  <div 
+                    key={idx}
+                    className="bg-slate-800/30 border border-slate-700/50 p-3 rounded-lg flex items-center gap-4"
+                  >
+                    <div className="w-24 shrink-0">
+                      <span className="text-sm font-bold text-slate-200 block truncate" title={cat.category}>
+                        {cat.category}
+                      </span>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-500">기여도</span>
+                        <span className="font-mono text-indigo-400">{(cat.ratio * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-700/30 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-indigo-500 to-indigo-400 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${cat.ratio * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 고영향 뉴스 분석 */}
           {impactNews.length > 0 && (
             <div>
               <h4 className="text-slate-400 text-xs font-bold uppercase mb-3 flex items-center gap-2">
                 <Zap size={14} className="text-amber-400" />
-                고영향 뉴스 분석 (Top 3 Impact)
+                고영향 뉴스 (High Impact News)
               </h4>
               <div className="grid grid-cols-1 gap-3">
                 {impactNews.map((news, idx) => (
@@ -62,19 +100,16 @@ const ReasoningReport = ({ selectedDate, reasoning }) => {
                     className="bg-slate-800/30 border border-slate-700/50 p-4 rounded-xl hover:bg-slate-800/50 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs text-slate-500 font-bold">{news.source}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
+                          Rank #{news.rank}
+                        </span>
+                      </div>
                       <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                        Impact Score: {news.impact_score}
+                        Impact: {(news.impact * 100).toFixed(1)}%
                       </span>
                     </div>
-                    <h5 className="text-sm font-bold text-slate-200 mb-2">{news.title}</h5>
-                    <div className="flex items-start gap-2">
-                      <BrainCircuit size={14} className="text-indigo-400 mt-0.5 shrink-0" />
-                      <p className="text-xs text-indigo-200/80 leading-snug">
-                        <span className="font-bold text-indigo-400">AI Analysis:</span>{' '}
-                        {news.analysis}
-                      </p>
-                    </div>
+                    <h5 className="text-sm font-bold text-slate-200">{news.title}</h5>
                   </div>
                 ))}
               </div>

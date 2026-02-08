@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Calendar, TrendingUp, TrendingDown, X } from 'lucide-react';
 
 // Components
@@ -58,13 +58,49 @@ const Dashboard = () => {
         // API에서 데이터 가져오기 (병렬 처리)
         const [chartData, newsData, metricsData] = await Promise.all([
           fetchChartData(commodity),
-          fetchNews(0, 10).catch(() => null), // 뉴스는 실패해도 계속 진행
-          fetchMarketMetrics(commodity, todayStr).catch(() => null), // 지표도 실패해도 계속 진행
+          fetchNews(0, 10).catch((err) => {
+            console.warn('News API failed:', err.message);
+            return null;
+          }),
+          fetchMarketMetrics(commodity, todayStr).catch((err) => {
+            console.warn('Market Metrics API failed:', err.message);
+            return null;
+          }),
         ]);
         
         setData(chartData);
         setNews(newsData);
         setMarketMetrics(metricsData?.metrics || null);
+        
+        // 자동으로 오늘 날짜 선택 (또는 가장 가까운 미래 날짜)
+        if (chartData && chartData.length > 0) {
+          // 오늘 날짜 찾기
+          const todayData = chartData.find(d => d.isToday);
+          
+          let targetDate = null;
+          
+          if (todayData && todayData.isFuture && todayData.forecast) {
+            // 오늘이 미래 데이터이고 예측값이 있으면 선택
+            targetDate = todayData;
+          } else {
+            // 오늘이 과거이거나 데이터 없으면, 가장 가까운 미래 날짜 선택
+            const futureDates = chartData.filter(d => d.isFuture && d.forecast);
+            if (futureDates.length > 0) {
+              targetDate = futureDates[0];
+            }
+          }
+          
+          // 선택된 날짜의 상세 정보 가져오기
+          if (targetDate && targetDate.apiDate) {
+            setSelectedDate(targetDate.date);
+            try {
+              const detail = await fetchDateDetail(commodity, targetDate.apiDate);
+              setDateDetail(detail);
+            } catch (err) {
+              console.error('Failed to fetch initial date detail:', err);
+            }
+          }
+        }
         
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
@@ -97,6 +133,14 @@ const Dashboard = () => {
   
   // 시뮬레이션 핸들러
   const handleSimulation = (simData) => {
+    console.log('handleSimulation received:', simData);
+    
+    // 데이터 유효성 검증 (새로운 구조: predictions 배열)
+    if (simData && (!simData.predictions || !Array.isArray(simData.predictions))) {
+      console.error('Invalid simulation data received:', simData);
+      return;
+    }
+    
     setSimulationData(simData);
     // 시뮬레이션이 초기화되면 선택된 날짜도 초기화
     if (!simData) {
@@ -111,7 +155,7 @@ const Dashboard = () => {
   }, [data]);
 
   // 날짜 선택 핸들러
-  const handleDateSelect = async (date) => {
+  const handleDateSelect = useCallback(async (date) => {
     setSelectedDate(date);
     
     // 선택된 날짜의 상세 데이터 가져오기
@@ -125,7 +169,7 @@ const Dashboard = () => {
         setDateDetail(null);
       }
     }
-  };
+  }, [commodity, data]);
 
   // 날짜 선택 해제 (오늘 기준으로 리셋)
   const handleResetDate = () => {
@@ -251,6 +295,7 @@ const Dashboard = () => {
               onSimulate={handleSimulation}
               baseForecast={todayPrice}
               commodity={commodity}
+              marketMetrics={marketMetrics}
             />
           </div>
         </section>

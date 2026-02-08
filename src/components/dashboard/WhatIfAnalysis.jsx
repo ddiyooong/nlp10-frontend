@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sliders, TrendingUp, TrendingDown, RotateCcw, Save, BarChart3, Play, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { fetchSimulation } from '../../services/api';
 import { toAPIDateFormat } from '../../utils/dataAdapter';
 
-// 새로운 Feature 설정
-const DEFAULT_FEATURE_VALUES = {
+// Feature 기본값 (fallback)
+const FALLBACK_FEATURE_VALUES = {
   '10Y_Yield': 4.2,
   'USD_Index': 103.5,
   'pdsi': -1.0,
@@ -63,14 +63,41 @@ const FEATURE_CONFIG = {
  * @param {Function} props.onSimulate - 시뮬레이션 실행 시 호출되는 콜백 (시뮬레이션 데이터 전달)
  * @param {number} props.baseForecast - 현재 예측 가격
  * @param {string} props.commodity - 품목명
+ * @param {Array} props.marketMetrics - 시장 지표 데이터 (기본값 추출용)
  */
-const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn' }) => {
+const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn', marketMetrics = null }) => {
+  // MarketMetrics에서 기본값 추출
+  const getDefaultValuesFromMetrics = (metrics) => {
+    if (!metrics || !Array.isArray(metrics)) {
+      return { ...FALLBACK_FEATURE_VALUES };
+    }
+    
+    const values = { ...FALLBACK_FEATURE_VALUES };
+    
+    metrics.forEach(metric => {
+      const metricId = metric.metric_id;
+      if (metricId && values.hasOwnProperty(metricId)) {
+        values[metricId] = metric.numeric_value;
+      }
+    });
+    
+    return values;
+  };
+  
+  const DEFAULT_FEATURE_VALUES = getDefaultValuesFromMetrics(marketMetrics);
+  
   const [featureValues, setFeatureValues] = useState({ ...DEFAULT_FEATURE_VALUES });
   const [savedScenarios, setSavedScenarios] = useState([]);
   const [showComparison, setShowComparison] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [error, setError] = useState(null);
+  
+  // MarketMetrics가 업데이트되면 기본값도 업데이트
+  useEffect(() => {
+    const newDefaults = getDefaultValuesFromMetrics(marketMetrics);
+    setFeatureValues({ ...newDefaults });
+  }, [marketMetrics]);
 
   // Feature 값 업데이트 핸들러
   const handleFeatureChange = (featureKey, value) => {
@@ -90,28 +117,33 @@ const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn' }) 
       const today = new Date();
       const baseDate = toAPIDateFormat(today);
       
-      // API 호출
+      // API 호출 (현재값 그대로 전송)
       const result = await fetchSimulation(commodity, baseDate, featureValues);
       
-      // 결과 저장
+      // 새로운 응답 구조: predictions 배열 (60일치)
+      const { predictions = [], feature_impacts = [], summary = {} } = result;
+      
+      // 결과 저장 (summary에서 평균값 사용)
       setSimulationResult({
-        originalForecast: result.original_forecast,
-        simulatedForecast: result.simulated_forecast,
-        change: result.change,
-        changePercent: result.change_percent,
-        featureImpacts: result.feature_impacts
+        originalForecast: summary.avg_original_price || 0,
+        simulatedForecast: summary.avg_simulated_price || 0,
+        change: summary.avg_change || 0,
+        changePercent: summary.avg_change_percent || 0,
+        totalChange: summary.total_change || 0,
+        maxChange: summary.max_change || 0,
+        minChange: summary.min_change || 0,
+        maxChangeDate: summary.max_change_date || null,
+        minChangeDate: summary.min_change_date || null,
+        featureImpacts: feature_impacts,
+        predictions: predictions // 전체 60일 데이터
       });
       
-      // Dashboard로 시뮬레이션 데이터 전달
+      // Dashboard로 시뮬레이션 데이터 전달 (전체 predictions 포함)
       if (onSimulate) {
         onSimulate({
           featureValues: { ...featureValues },
-          result: {
-            originalForecast: result.original_forecast,
-            simulatedForecast: result.simulated_forecast,
-            change: result.change,
-            changePercent: result.change_percent
-          }
+          predictions: predictions, // 60일치 데이터
+          summary: summary
         });
       }
     } catch (err) {
@@ -162,7 +194,7 @@ const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn' }) 
       };
 
       savedScenarios.forEach((scenario, sIdx) => {
-        const scenarioForecast = scenario.result.simulatedForecast;
+        const scenarioForecast = scenario.result?.simulatedForecast || baseForecast;
         data[`scenario${sIdx + 1}`] = scenarioForecast + (idx * 0.5);
       });
 
@@ -296,51 +328,70 @@ const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn' }) 
           </div>
         ) : simulationResult ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div>
-                <p className="text-xs text-slate-400 uppercase font-bold mb-1">현재 예측</p>
-                <p className="text-2xl font-bold text-slate-300 font-mono">
+                <p className="text-xs text-slate-400 uppercase font-bold mb-1">원본 평균</p>
+                <p className="text-lg font-bold text-slate-300 font-mono">
                   ${simulationResult.originalForecast.toFixed(2)}
                 </p>
+                <p className="text-[10px] text-slate-600 mt-0.5">60일 평균</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 uppercase font-bold mb-1">시뮬레이션 예측</p>
-                <p className="text-2xl font-bold font-mono text-cyan-400 mb-1">
+                <p className="text-xs text-slate-400 uppercase font-bold mb-1">시뮬레이션 평균</p>
+                <p className="text-lg font-bold font-mono text-cyan-400">
                   ${simulationResult.simulatedForecast.toFixed(2)}
                 </p>
-                {simulationResult.change !== 0 && (
-                  <div className={`flex items-center gap-1 text-xs font-bold ${
-                    simulationResult.change > 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}>
-                    {simulationResult.change > 0 ? (
-                      <TrendingUp size={14} />
-                    ) : (
-                      <TrendingDown size={14} />
-                    )}
-                    <span>
-                      {simulationResult.change > 0 ? '+' : ''}
-                      ${simulationResult.change.toFixed(2)} ({simulationResult.changePercent > 0 ? '+' : ''}
-                      {simulationResult.changePercent.toFixed(2)}%)
-                    </span>
-                  </div>
-                )}
+                <p className="text-[10px] text-slate-600 mt-0.5">60일 평균</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 uppercase font-bold mb-1">변화량</p>
-                <p className={`text-xl font-bold font-mono ${
+                <p className="text-xs text-slate-400 uppercase font-bold mb-1">평균 변화</p>
+                <p className={`text-lg font-bold font-mono ${
                   simulationResult.change === 0 
                     ? 'text-slate-500' 
                     : simulationResult.change > 0 
                       ? 'text-emerald-400' 
                       : 'text-rose-400'
                 }`}>
-                  {simulationResult.change === 0 
-                    ? '변화 없음' 
-                    : `${simulationResult.change > 0 ? '+' : ''}${simulationResult.change.toFixed(2)}`
-                  }
+                  {simulationResult.change > 0 ? '+' : ''}${simulationResult.change.toFixed(2)}
+                </p>
+                <p className="text-[10px] text-slate-600 mt-0.5">
+                  {simulationResult.changePercent > 0 ? '+' : ''}{simulationResult.changePercent.toFixed(2)}%
                 </p>
               </div>
+              <div>
+                <p className="text-xs text-slate-400 uppercase font-bold mb-1">누적 변화</p>
+                <p className={`text-lg font-bold font-mono ${
+                  (simulationResult.totalChange || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  {(simulationResult.totalChange || 0) > 0 ? '+' : ''}${(simulationResult.totalChange || 0).toFixed(2)}
+                </p>
+                <p className="text-[10px] text-slate-600 mt-0.5">60일 합계</p>
+              </div>
             </div>
+            
+            {/* 최대/최소 변화 */}
+            {simulationResult.maxChange && (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3">
+                  <p className="text-xs text-emerald-400 font-bold mb-1">최대 변화</p>
+                  <p className="text-lg font-mono font-bold text-emerald-400">
+                    +${simulationResult.maxChange.toFixed(2)}
+                  </p>
+                  {simulationResult.maxChangeDate && (
+                    <p className="text-xs text-slate-500 mt-1">{simulationResult.maxChangeDate}</p>
+                  )}
+                </div>
+                <div className="bg-rose-500/5 border border-rose-500/20 rounded-lg p-3">
+                  <p className="text-xs text-rose-400 font-bold mb-1">최소 변화</p>
+                  <p className="text-lg font-mono font-bold text-rose-400">
+                    +${simulationResult.minChange.toFixed(2)}
+                  </p>
+                  {simulationResult.minChangeDate && (
+                    <p className="text-xs text-slate-500 mt-1">{simulationResult.minChangeDate}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Feature별 기여도 */}
             {simulationResult.featureImpacts.length > 0 && (
@@ -349,25 +400,31 @@ const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn' }) 
                   Feature별 기여도
                 </p>
                 <div className="space-y-2">
-                  {simulationResult.featureImpacts.map((impact, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300">
-                        {FEATURE_CONFIG[impact.feature].label}
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-500">
-                          {impact.valueChange > 0 ? '+' : ''}
-                          {impact.valueChange.toFixed(2)}
+                  {simulationResult.featureImpacts.map((impact, idx) => {
+                    // API는 snake_case로 반환
+                    const valueChange = impact.value_change ?? 0;
+                    const contribution = impact.contribution ?? 0;
+                    
+                    return (
+                      <div key={idx} className="flex items-center justify-between">
+                        <span className="text-sm text-slate-300">
+                          {FEATURE_CONFIG[impact.feature]?.label || impact.feature}
                         </span>
-                        <span className={`text-sm font-mono font-bold ${
-                          impact.contribution > 0 ? 'text-emerald-400' : 'text-rose-400'
-                        }`}>
-                          {impact.contribution > 0 ? '+' : ''}
-                          ${impact.contribution.toFixed(2)}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-slate-500">
+                            {valueChange > 0 ? '+' : ''}
+                            {valueChange.toFixed(2)}
+                          </span>
+                          <span className={`text-sm font-mono font-bold ${
+                            contribution > 0 ? 'text-emerald-400' : contribution < 0 ? 'text-rose-400' : 'text-slate-500'
+                          }`}>
+                            {contribution > 0 ? '+' : ''}
+                            ${contribution.toFixed(2)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -392,25 +449,31 @@ const WhatIfAnalysis = ({ onSimulate, baseForecast = 450, commodity = 'corn' }) 
             저장된 시나리오 ({savedScenarios.length})
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {savedScenarios.map((scenario) => (
-              <div
-                key={scenario.id}
-                className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-sm font-bold text-slate-300">{scenario.name}</span>
-                  <span className={`text-xs font-mono font-bold ${
-                    scenario.result.change > 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}>
-                    {scenario.result.change > 0 ? '+' : ''}
-                    ${scenario.result.change.toFixed(2)}
-                  </span>
+            {savedScenarios.map((scenario) => {
+              // simulationResult 구조에서 값 가져오기
+              const change = scenario.result?.change || 0;
+              const simulatedForecast = scenario.result?.simulatedForecast || 0;
+              
+              return (
+                <div
+                  key={scenario.id}
+                  className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-sm font-bold text-slate-300">{scenario.name}</span>
+                    <span className={`text-xs font-mono font-bold ${
+                      change > 0 ? 'text-emerald-400' : change < 0 ? 'text-rose-400' : 'text-slate-500'
+                    }`}>
+                      {change > 0 ? '+' : ''}
+                      ${change.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    예측: ${simulatedForecast.toFixed(2)}
+                  </p>
                 </div>
-                <p className="text-xs text-slate-500">
-                  예측: ${scenario.result.simulatedForecast.toFixed(2)}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

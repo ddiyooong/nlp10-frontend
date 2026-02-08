@@ -28,19 +28,30 @@ const normalizeImpact = (impact) => {
  */
 const MarketMetrics = ({ metrics }) => {
   // API 응답을 MetricCard가 요구하는 형식으로 변환
-  const adaptedMetrics = metrics?.map(metric => {
-    const config = METRIC_CONFIG[metric.metric_id] || { icon: BarChart3, group: 'Other' };
-    
-    return {
-      icon: config.icon,
-      label: metric.label,
-      value: metric.value,
-      trend: Math.abs(metric.trend || 0),
-      sub: `Current: ${metric.numeric_value}`,
-      impact: normalizeImpact(metric.impact),
-      group: config.group,
-    };
-  });
+  const adaptedMetrics = metrics
+    ?.filter(metric => {
+      // 뉴스 PCA 관련 항목 제외
+      const metricId = metric.metric_id?.toLowerCase() || '';
+      return !metricId.includes('news_pca') && !metricId.includes('newspca');
+    })
+    ?.map(metric => {
+      const config = METRIC_CONFIG[metric.metric_id] || { icon: BarChart3, group: 'Other' };
+      
+      // 소수점 4자리까지 표시
+      const formattedValue = typeof metric.numeric_value === 'number' 
+        ? metric.numeric_value.toFixed(4)
+        : metric.value;
+      
+      return {
+        icon: config.icon,
+        label: metric.label,
+        value: formattedValue,
+        trend: Math.abs(metric.trend || 0),
+        sub: `Current: ${formattedValue}`,
+        impact: normalizeImpact(metric.impact),
+        group: config.group,
+      };
+    });
 
   return (
     <div className="xl:col-span-2">
