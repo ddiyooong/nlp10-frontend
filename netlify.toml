@@ -6,6 +6,12 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[[redirects]]
+  from = "/api/*"
+  to = "http://44.252.76.158:8000/api/:splat"
+  status = 200
+  force = true
+
 # SPA 라우팅을 위한 리다이렉트 설정 (React Router 사용 시 필수)
 [[redirects]]
   from = "/*"
